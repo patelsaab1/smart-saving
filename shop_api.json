@@ -1,0 +1,107 @@
+{
+  "info": {
+    "_postman_id": "e1f7c79c-5a1c-4d34-b9b5-6e2e8c9eae5b",
+    "name": "Vendor-Shop-Product Workflow",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "Vendor",
+      "item": [
+        {
+          "name": "Become Vendor",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}", "type": "text" }
+            ],
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                { "key": "pan", "type": "file" },
+                { "key": "gst", "type": "file" },
+                { "key": "license", "type": "file" }
+              ]
+            },
+            "url": { "raw": "{{baseUrl}}/become-vendor", "host": ["{{baseUrl}}"], "path": ["become-vendor"] }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Shop",
+      "item": [
+        {
+          "name": "Add Shop",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}", "type": "text" }],
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                { "key": "shopName", "value": "Test Shop" },
+                { "key": "category", "value": "Grocery" },
+                { "key": "subcategory", "value": "Fruits" },
+                { "key": "contactNumber", "value": "9876543210" },
+                { "key": "gstNumber", "type": "file" },
+                { "key": "licenseDoc", "type": "file" },
+                { "key": "rentAgreement", "type": "file" }
+              ]
+            },
+            "url": { "raw": "{{baseUrl}}/add-shop", "host": ["{{baseUrl}}"], "path": ["add-shop"] }
+          }
+        },
+        {
+          "name": "Admin Approve Rate List",
+          "request": {
+            "method": "PUT",
+            "header": [{ "key": "Authorization", "value": "Bearer {{adminToken}}", "type": "text" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"action\": \"approve\"\n}"
+            },
+            "url": { "raw": "{{baseUrl}}/shops/{{shopId}}/approve-rate-list", "host": ["{{baseUrl}}"], "path": ["shops", "{{shopId}}", "approve-rate-list"] }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Product",
+      "item": [
+        {
+          "name": "Add Product",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}", "type": "text" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"shopId\": \"{{shopId}}\",\n  \"name\": \"Apple\",\n  \"price\": 100,\n  \"discountPercent\": 10\n}"
+            },
+            "url": { "raw": "{{baseUrl}}/products/add", "host": ["{{baseUrl}}"], "path": ["products", "add"] }
+          }
+        },
+        {
+          "name": "Bulk Upload Products",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}", "type": "text" }],
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                { "key": "shopId", "value": "{{shopId}}" },
+                { "key": "file", "type": "file" }
+              ]
+            },
+            "url": { "raw": "{{baseUrl}}/products/bulk-upload", "host": ["{{baseUrl}}"], "path": ["products", "bulk-upload"] }
+          }
+        }
+      ]
+    }
+  ],
+  "variable": [
+    { "key": "baseUrl", "value": "http://localhost:5000" },
+    { "key": "token", "value": "" },
+    { "key": "adminToken", "value": "" },
+    { "key": "shopId", "value": "" }
+  ]
+}

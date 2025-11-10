@@ -23,8 +23,11 @@ const createStorage = (folder) =>
 
 // 🔹 Different uploaders
 export const uploadProfile = multer({ storage: createStorage("profiles") });
-export const uploadBill = multer({ storage: createStorage("bills") });
+export const uploadBillimage = multer({ storage: createStorage("bills") });
 export const uploadVendor = multer({ storage: createStorage("vendors") });
+export const uploadVendorKyc = multer({ storage: createStorage("vendors/kyc") });
+
 export const uploadOther = multer({ storage: createStorage("others") });
+
 
 export default cloudinary;

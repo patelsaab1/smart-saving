@@ -60,14 +60,12 @@ const userSchema = new mongoose.Schema(
 
 // ✅ FIXED HOOK
 userSchema.pre("save", function (next) {
-  if (this.planType === "A" && !this.referralCode) {
+  if (!this.referralCode) {
     this.referralCode = generateReferralCode();
-  } else {
-    // Explicitly remove referralCode if it's null or undefined
-    this.set('referralCode', undefined, { strict: false });
   }
   next();
 });
+
 // ✅ keep only meaningful indexes
 userSchema.index({ email: 1 });
 userSchema.index({ phone: 1 });

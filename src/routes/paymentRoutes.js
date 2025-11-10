@@ -4,6 +4,7 @@ import {
   verifyOnlinePayment,
   requestCashActivation,
   approveCashActivation,
+  PendingCashRequests,
 } from "../controllers/paymentController.js";
 import { adminMiddleware, authMiddleware } from "../middlewares/authMiddleware.js";
 
@@ -16,6 +17,7 @@ router.post("/online/verify", authMiddleware, verifyOnlinePayment);
 router.post("/cash/request", authMiddleware, requestCashActivation);
 
 // Admin Route
-router.post("/cash/approve/:userId", authMiddleware, adminMiddleware, approveCashActivation);
+router.get("/cash/request/", adminMiddleware, PendingCashRequests);
+router.post("/request/approve/:userId/:paymentId", adminMiddleware, approveCashActivation);
 
 export default router;

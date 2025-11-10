@@ -16,6 +16,8 @@ import walletRoutes from "./src/routes/walletroutes.js";
 import errorHandler from "./src/utils/errorHandler.js";
 import adminRoutes from "./src/routes/adminRoutes.js";
 import subscriptionRoutes from "./src/routes/subscriptionRoutes.js";
+import contactRoutes from "./src/routes/contactRoutes.js";
+import withdrawRoutes from "./src/routes/withdrawRoutes.js";
 
 dotenv.config();
 const app = express();
@@ -45,6 +47,8 @@ app.use("/api/payments", paymentRoutes);
 app.use("/api/referrals", referralRoutes);
 app.use("/api/subscription", subscriptionRoutes);
 app.use("/api/account", walletRoutes);
+app.use("/api/withdrawal", withdrawRoutes);
+app.use("/api/contacts", contactRoutes);
 
 // Health Check
 app.get("/", (req, res) => {

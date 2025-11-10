@@ -57,9 +57,13 @@ export const getMySubscription = async (req, res) => {
     })
       .sort({ activatedAt: -1 }) // ✅ Latest active plan
       .populate("subscription")
-      .populate("payment");
+      .populate("payment")
+      .populate("user");
 
-      console.log("User Subscription:", sub, req.user.id);
+     
+       const user = await User.findById(req.user.id).select(
+      "name email phone referralCode role planType activatedAt profilePic"
+    );
     if (!sub) {
       return res.json(apiResponse({
         success: false,

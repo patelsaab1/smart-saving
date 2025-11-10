@@ -1,4 +1,4 @@
-import UserBill from "../models/UserBill.js";
+
 import User from "../models/User.js";
 import { createActivity } from "./userActivityService.js";
 import cloudinary from "./cloudinary.js";

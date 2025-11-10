@@ -2,8 +2,8 @@
 import crypto from "crypto";
 
 // Function to generate SmartSaving branded referral code
-export const generateReferralCode = (prefix = "SMART-SAVING") => {
-//   const year = new Date().getFullYear();   // e.g., 2025
+export const generateReferralCode = (prefix = "SS-R") => {
+
   const random = crypto.randomBytes(4).toString("hex").toUpperCase(); 
   return `${prefix}-${random}`; // e.g., SS-R-2025-8DJ4KX1
 };

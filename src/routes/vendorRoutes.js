@@ -1,32 +1,44 @@
 import express from "express";
+import { 
+  becomeVendor, 
+  addShop, 
+  uploadRateList, 
+  getMyShops,
+  getActiveShops,
+  updateShop,
+  deleteShop,
+   
+} from "../controllers/vendorController.js";
 import { authMiddleware, adminMiddleware } from "../middlewares/authMiddleware.js";
-import { becomeVendor, addShop ,uploadRateList } from "../controllers/vendorController.js";
-import { addProduct, bulkUploadProducts } from "../controllers/productController.js";
-// import { uploadAny, uploadMultiple, uploadSingle } from "../middlewares/multerMemory.js";
-import { uploadSingle } from "../middlewares/multerMemory.js";
-import { shopUpload } from "../middlewares/multerMemory.js";
+import { uploadMultiple } from "../middlewares/multerMemory.js";
+
 const router = express.Router();
 
-// Vendor
-router.post("/become-vendor", authMiddleware, becomeVendor);
-router.post(
-  "/add-shop",
-  authMiddleware,
-  shopUpload,
-  addShop,
-  
-);
 
+router.post("/become-vendor", uploadMultiple([
+  { name: "pan", maxCount: 1 },
+  { name: "gst", maxCount: 1 },
+  { name: "license", maxCount: 1 }
+]), becomeVendor);
 
-// Products
-router.post("/products/add", authMiddleware, addProduct);
-router.post("/products/bulk-upload", authMiddleware, uploadSingle("file"), bulkUploadProducts);
+router.get("/shops", getActiveShops);
 
-// Rate List
-router.post("/shops/:shopId/upload-rate-list", authMiddleware, uploadSingle("file"), uploadRateList); // handled in vendorController
+router.post("/shop", authMiddleware, uploadMultiple([
+  { name: "rentAgreement", maxCount: 1 },
+  { name: "licenseDoc", maxCount: 1 }
+]), addShop);
+// vendorRoutes.js
+router.put("/shop/:shopId", authMiddleware, uploadMultiple([
+  { name: "rentAgreement", maxCount: 1 },
+  { name: "licenseDoc", maxCount: 1 }
+]), updateShop);
+router.delete("/shop/:shopId", authMiddleware, deleteShop);
 
+router.post("/shop/:shopId/rate-list", authMiddleware, uploadMultiple([
+  { name: "rateListFile", maxCount: 1 },
+  { name: "rateListExcel", maxCount: 1 }
+]), uploadRateList);
 
-// Admin Shop actions
-
+router.get("/my-shops", authMiddleware, getMyShops);
 
 export default router;

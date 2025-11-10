@@ -18,7 +18,7 @@ router.patch("/admin/toggle/:id",  adminMiddleware, togglePlanStatus);
 router.get("/my", authMiddleware, getMySubscription);
 
 // User Routes
-router.get("/plans", authMiddleware, getActivePlans);
+router.get("/plans", getActivePlans);
 
 
 export default router;

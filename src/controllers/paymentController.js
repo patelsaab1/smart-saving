@@ -7,6 +7,7 @@ import { handleReferralBonus } from "../services/referralService.js";
 import dotenv from "dotenv";
 import Subscription from "../models/Subscription.js";
 import UserSubscription from "../models/UserSubscription.js";
+import { generateReferralCode } from "../utils/referralCode.js";
 dotenv.config();
 // 🔹 Razorpay Instance
 const razorpay = new Razorpay({
@@ -19,17 +20,15 @@ const razorpay = new Razorpay({
 export const initiateOnlinePayment = async (req, res) => {
   try {
     const { planId } = req.body;
-    console.log("Purchase Plan Request by User:", req.user.id, "for Plan ID:", planId);
+    // console.log("Purchase Plan Request by User:", req.user.id, "for Plan ID:", planId);
     const plan = await Subscription.findById(planId);
     if (!plan || !plan.isActive) return res.status(400).json(apiResponse({ success: false, message: "Plan not found or inactive" }));
 
-    console.log("Selected Plan:", plan);
+    // console.log("Selected Plan:", plan);
 
     const user = await User.findById(req.user.id);
     if (!user) return res.status(404).json(apiResponse({ success: false, message: "User not found" }));
-    // if (user.isActive)
-    //   return res.status(400).json(apiResponse({ success: false, message: "User already active" }));
-
+    
     const order = await razorpay.orders.create({
       amount: plan.price * 100,
       currency: "INR",
@@ -67,7 +66,7 @@ export const verifyOnlinePayment = async (req, res) => {
     } = req.body;
 
     const payment = await Payment.findById(paymentId).populate("user");
-    console.log("Verifying Payment:",  payment);
+    console.log("Verifying Payment:", payment);
     if (!payment)
       return res
         .status(404)
@@ -96,6 +95,9 @@ export const verifyOnlinePayment = async (req, res) => {
     user.isActive = true;
     user.planType = payment.planType;
     user.activatedAt = new Date();
+    if (!user.referralCode) {
+      user.referralCode = generateReferralCode();
+    }
     await user.save();
 
     // ✅ Find Subscription Plan
@@ -106,7 +108,7 @@ export const verifyOnlinePayment = async (req, res) => {
         .json(apiResponse({ success: false, message: "Subscription plan not found" }));
 
     // ✅ Create User Subscription
-   const resuser =  await UserSubscription.create({
+    const resuser = await UserSubscription.create({
       user: req.user.id,
       subscription: plan._id,
       payment: payment._id,
@@ -114,7 +116,7 @@ export const verifyOnlinePayment = async (req, res) => {
       activatedAt: new Date(),
     });
 
-    console.log("User Subscription Created:", resuser,user._id); 
+    console.log("User Subscription Created:", resuser, user._id);
     // ✅ Credit Cashback (ONLY ONCE)
     if (plan.cashback && plan.cashback > 0) {
       await updateWallet({
@@ -127,15 +129,13 @@ export const verifyOnlinePayment = async (req, res) => {
     }
 
     // ✅ Referral Bonus Only for Plan A
-    if (payment.planType === "A") {
-      await handleReferralBonus(user._id);
-    }
+    await handleReferralBonus(user._id);
 
     return res.json(
       apiResponse({
         success: true,
         message: "Payment verified & user activated",
-        data: { id: user._id, userID:req.user.id ,email: user.email, planType: user.planType },
+        data: { id: user._id, userID: req.user.id, email: user.email, planType: user.planType },
       })
     );
   } catch (err) {
@@ -188,6 +188,18 @@ export const requestCashActivation = async (req, res) => {
   }
 };
 
+
+export const PendingCashRequests = async (req, res) => {
+  try {
+    const pending = await Payment.find({ mode: "cash", status: "pending" })
+      .populate("user", "name email phone")
+      .sort({ createdAt: -1 });
+
+    return res.json(apiResponse({ data: pending }));
+  } catch (err) {
+    return res.status(500).json(apiResponse({ success: false, message: "Failed to fetch pending requests" }));
+  }
+};
 export const approveCashActivation = async (req, res) => {
   try {
     const { userId, paymentId } = req.params;
@@ -206,6 +218,9 @@ export const approveCashActivation = async (req, res) => {
     user.isActive = true;
     user.planType = payment.planType;
     user.activatedAt = new Date();
+    if (!user.referralCode) {
+      user.referralCode = generateReferralCode();
+    }
     await user.save();
 
     const cashbackAmount = payment.planType === "A" ? 500 : 250;
@@ -223,7 +238,7 @@ export const approveCashActivation = async (req, res) => {
       existingSub.activatedAt = new Date();
       await existingSub.save();
     } else {
-    const res =   await UserSubscription.create({
+      await UserSubscription.create({
         user: user._id,
         subscription: plan._id,
         payment: payment._id,
@@ -232,7 +247,7 @@ export const approveCashActivation = async (req, res) => {
         planCode: payment.planType,
       });
     }
-console.log("User Subscription Result:", res);
+    console.log("User Subscription Result:", res);
     await updateWallet({
       userId: user._id,
       amount: cashbackAmount,
@@ -243,7 +258,7 @@ console.log("User Subscription Result:", res);
 
     await handleReferralBonus(user._id);
 
-    return res.json(apiResponse({ message: "Cash activation approved & user activated" }));
+    return res.json(apiResponse({ message: "Cash activation approved & user activated" ,data:user}));
   } catch (err) {
     console.error(err);
     res.status(500).json(apiResponse({ success: false, message: "Admin approval failed" }));

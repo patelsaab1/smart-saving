@@ -1,20 +1,20 @@
-import bcrypt from 'bcryptjs';
+
 import User from '../models/User.js';
-import Vendor from '../models/Vendor.js';
 import EmailVerification from '../models/email.js';
 import { sendEmail } from '../services/emailService.js';
 import apiResponse from '../utils/apiResponse.js';
 import jwt from 'jsonwebtoken';
 import Wallet from '../models/Wallet.js';
+import Vendor from '../models/Vendor.js';
 
 const generateToken = (id, role) => {
-  return jwt.sign({ id, role }, process.env.JWT_SECRET, { expiresIn: "7d" });
+  return jwt.sign({ id, role }, process.env.JWT_SECRET, { expiresIn: "30d" });
 };
 
 export const register = async (req, res) => {
   try {
     const { name, email, phone, role, referredBy, shopName, category, address, password } = req.body;
-    console.log(req.body)
+    // console.log(req.body)
     // Validate required fields
     if (!name || !email || !phone || !role || !password) {
       return res
@@ -30,8 +30,13 @@ export const register = async (req, res) => {
         .json(apiResponse({ success: false, message: 'User already exists' }));
     }
 
-    // Hash password
-    // const hashedPassword = await bcrypt.hash(password, 10);
+    let referrer = null;
+    if (referredBy) {
+      referrer = await User.findOne({ referralCode: referredBy });
+      if (!referrer) {
+        return res.status(400).json(apiResponse({ success: false, message: "Invalid referral code" }));
+      }
+    }
 
     // Send OTP for email verification
     const otp = Math.floor(100000 + Math.random() * 900000).toString();
@@ -53,22 +58,7 @@ export const register = async (req, res) => {
 
     await user.save();
     await Wallet.create({ user: user._id, balance: 0 });
-    // Vendor-specific registration
-    if (role === 'vendor') {
-      if (!shopName || !category || !address) {
-        return res
-          .status(400)
-          .json(apiResponse({ success: false, message: 'Vendor details required' }));
-      }
-      const vendor = new Vendor({
-        user: user._id,
-        shopName,
-        category,
-        address,
-      });
-      await vendor.save();
-    }
-
+    
     return res.status(201).json(
       apiResponse({
         success: true,
@@ -83,6 +73,70 @@ export const register = async (req, res) => {
       .json(apiResponse({ success: false, message: 'Server error' }));
   }
 };
+
+export const registerVendor = async (req, res) => {
+  try {
+    const { name, email, phone, password, referredBy, shopName, category, subcategory, address, gstNumber } = req.body;
+
+    if (!name || !email || !phone || !password || !shopName || !category || !address) {
+      return res.status(400).json({ success: false, message: "Missing required fields" });
+    }
+
+    let existing = await User.findOne({ email });
+    if (existing) {
+      return res.status(400).json({ success: false, message: "Vendor already registered with this email" });
+    }
+
+    // OTP logic
+    const otp = Math.floor(100000 + Math.random() * 900000).toString();
+    const expiresAt = new Date(Date.now() + 5 * 60 * 1000);
+
+    await EmailVerification.deleteMany({ email });
+    await EmailVerification.create({ email, otp, expiresAt });
+    await sendEmail(email, "SmartSaving Vendor Verification OTP", `Your OTP is: ${otp}`);
+
+    // Create User
+    const user = new User({
+      name,
+      email,
+      phone,
+      password,
+      role: "vendor",
+      referredBy,
+      address,   // ✅ Save address properly
+      isActive: true
+    });
+
+    await user.save();
+
+    await Wallet.create({ user: user._id, balance: 0 });
+
+    // Create Vendor
+    await Vendor.create({
+      user: user._id,
+      shopName,
+      shopCategory: category,   // ✅ map correctly
+      shopSubCategory: subcategory, // ✅ extra optional field
+      shopAddress: `${address.street}, ${address.city}, ${address.state}, ${address.country} - ${address.zip}`, // ✅ make proper full string
+      gstNumber
+    });
+
+    return res.status(201).json({
+      success: true,
+      message: "Vendor registered successfully.",
+      data: {
+        userId: user._id,
+        email: user.email,
+        otp   // remove in production
+      }
+    });
+
+  } catch (err) {
+    console.log("Vendor Register Error:", err);
+    return res.status(500).json({ success: false, message: "Server Error" });
+  }
+};
+
 
 export const sendOtp = async (req, res) => {
   try {
@@ -164,7 +218,7 @@ export const verifyOtp = async (req, res) => {
     // Activate user
     const user = await User.findOneAndUpdate(
       { email },
-      { isActive: true, activatedAt: new Date() },
+      { activatedAt: new Date() },
       { new: true }
     );
 
@@ -216,18 +270,12 @@ export const loginWithPassword = async (req, res) => {
     }
 
     const user = await User.findOne({ email }).select('+password');
-    console.log(user)
+    // console.log(user)
     if (!user) {
       return res
         .status(404)
         .json(apiResponse({ success: false, message: 'User not found' }));
     }
-
-    // if (!user.isActive) {
-    //   return res
-    //     .status(403)
-    //     .json(apiResponse({ success: false, message: 'Account not activated. Please verify your email.' }));
-    // }
 
     if (user.password !== password) {
       return res
@@ -263,21 +311,34 @@ export const loginWithPassword = async (req, res) => {
 export const getProfile = async (req, res) => {
   try {
     const user = await User.findById(req.user.id).select('-password -otp -otpExpiry');
+    // console.log("user infor ", user)
     if (!user) {
       return res
         .status(404)
         .json(apiResponse({ success: false, message: 'User not found' }));
     }
 
-    let vendorData = {};
-    if (user.role === 'vendor') {
+    // for (const user of await User.find({ referralCode: { $exists: false } })) {
+    //   user.referralCode = generateReferralCode();
+    //   await user.save();
+    // }
+
+
+    console.log(user.referralCode || null)
+    let vendorData = null;
+    if (user.role == 'vendor') {
       const vendor = await Vendor.findOne({ user: user._id });
+      // console.log("--------------------------",vendor)
+      
       if (vendor) {
         vendorData = {
           shopName: vendor.shopName,
-          category: vendor.category,
-          address: vendor.address,
+          shopCategory: vendor.shopCategory,
+          shopSubCategory: vendor.shopSubCategory || null,
+          shopAddress: vendor.shopAddress,
+          gstNumber: vendor.gstNumber || null,
         };
+      
       }
     }
 
@@ -285,7 +346,13 @@ export const getProfile = async (req, res) => {
       apiResponse({
         success: true,
         message: 'Profile fetched',
-        data: { ...user.toObject(), ...vendorData },
+        data: {
+          ...user.toObject(),
+          ...vendorData,
+          referralCode: user.planType == "A" ? user.referralCode : null,
+          profilePic: user.profilePic || "https://ui-avatars.com/api/?background=random&name=" + user.name
+        }
+
       })
     );
   } catch (err) {
@@ -298,48 +365,99 @@ export const getProfile = async (req, res) => {
 
 export const updateProfile = async (req, res) => {
   try {
-    const { name, phone, address, shopName, category, subcategory, gstNumber } = req.body;
     const userId = req.user.id;
+    const {
+      name,
+      phone,
+      address,
+      shopName,
+      shopCategory,
+      shopAddress,
+      gstNumber
+    } = req.body;
 
-    const updateData = {};
-    if (name) updateData.name = name;
-    if (phone) updateData.phone = phone;
-    if (address) updateData.address = address;
+    const updateUserData = {};
+    if (name) updateUserData.name = name;
+    if (phone) updateUserData.phone = phone;
+    if (address) updateUserData.address = address;
 
-    if (req.file && req.file.path) {
-      updateData.profilePic = req.file.path;
+    // Profile picture (user only)
+    if (req.file && req.file.fieldname === "profilePic") {
+      updateUserData.profilePic = req.file.path;
     }
 
-    const user = await User.findByIdAndUpdate(userId, updateData, { new: true, runValidators: true })
-      .select('-password -otp -otpExpiry');
+    let user = await User.findByIdAndUpdate(userId, updateUserData, {
+      new: true,
+      runValidators: true
+    }).select("-password -otp -otpExpiry");
+
     if (!user) {
-      return res
-        .status(404)
-        .json(apiResponse({ success: false, message: 'User not found' }));
+      return res.status(404).json(apiResponse({ success: false, message: "User not found" }));
     }
 
-    if (user.role === 'vendor') {
-      const vendorUpdateData = {};
-      if (shopName) vendorUpdateData.shopName = shopName;
-      if (category) vendorUpdateData.category = category;
-      if (subcategory) vendorUpdateData.subcategory = subcategory;
-      if (gstNumber) vendorUpdateData.gstNumber = gstNumber;
-      if (Object.keys(vendorUpdateData).length > 0) {
-        await Vendor.findOneAndUpdate({ user: userId }, vendorUpdateData, { new: true, runValidators: true });
+    // ✅ If vendor fields exist → Vendor section
+    if (shopName || shopCategory || shopAddress || gstNumber || req.files) {
+      // Convert to vendor if not already
+      if (user.role !== "vendor") {
+        user.role = "vendor";
+        await user.save();
       }
+
+      // Fetch vendor entry
+      let vendor = await Vendor.findOne({ user: userId });
+      if (!vendor) {
+        vendor = await Vendor.create({
+          user: userId,
+          shopName,
+          shopCategory,
+          shopAddress,
+          gstNumber
+        });
+      }
+
+      // Update shop details
+      if (shopName) vendor.shopName = shopName;
+      if (shopCategory) vendor.shopCategory = shopCategory;
+      if (shopAddress) vendor.shopAddress = shopAddress;
+      if (gstNumber) vendor.gstNumber = gstNumber;
+
+      // ✅ Business Logo Update
+      if (req.file && req.file.fieldname === "businessLogo") {
+        vendor.businessLogo = req.file.path;
+      }
+
+      // ✅ KYC upload only if new docs provided
+      const kycDocs = vendor.kycDocuments || {};
+
+      const hasOldKyc = kycDocs.pan || kycDocs.gst || kycDocs.license;
+
+      if (!hasOldKyc) {
+        // Require at least one KYC if none exists
+        const { pan, gst, license } = req.files || {};
+        if (!pan && !gst && !license) {
+          return res.status(400).json(apiResponse({
+            success: false,
+            message: "Please upload at least one KYC document (PAN / GST / License)"
+          }));
+        }
+      }
+
+      // Save newly uploaded docs
+      if (req.files?.pan) vendor.kycDocuments.pan = req.files.pan[0].path;
+      if (req.files?.gst) vendor.kycDocuments.gst = req.files.gst[0].path;
+      if (req.files?.license) vendor.kycDocuments.license = req.files.license[0].path;
+
+      await vendor.save();
     }
 
-    return res.json(
-      apiResponse({
-        success: true,
-        message: 'Profile updated',
-        data: user,
-      })
-    );
+    return res.json(apiResponse({
+      success: true,
+      message: "Profile updated successfully ✅",
+      data: user
+    }));
+
   } catch (err) {
-    console.error('❌ Update Profile Error:', err);
-    return res
-      .status(500)
-      .json(apiResponse({ success: false, message: 'Server error' }));
+    console.error("❌ Update Profile Error:", err);
+    return res.status(500).json(apiResponse({ success: false, message: "Server error" }));
   }
 };

@@ -1,0 +1,191 @@
+{
+  "info": {
+    "name": "SmartSaving Shopping Bill API",
+    "_postman_id": "unique-id-here",
+    "description": "Postman collection for testing Shopping Bill APIs. Base URL: http://localhost:1116/api/shopping\n\nReplace placeholders like {{auth_token}}, {{billId}}, {{vendorId}} with actual values.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "User - Upload Bill",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "x-auth-token",
+            "value": "{{auth_token}}",
+            "type": "text"
+          },
+          {
+            "key": "Content-Type",
+            "value": "multipart/form-data",
+            "type": "text"
+          }
+        ],
+        "body": {
+          "mode": "formdata",
+          "formdata": [
+            {
+              "key": "shopId",
+              "value": "valid_shop_id_here",
+              "type": "text"
+            },
+            {
+              "key": "billAmount",
+              "value": "1000",
+              "type": "text"
+            },
+            {
+              "key": "billImage",
+              "type": "file",
+              "src": "/path/to/bill-image.jpg"
+            }
+          ]
+        },
+        "url": {
+          "raw": "http://localhost:1116/api/shopping/upload",
+          "protocol": "http",
+          "host": ["localhost"],
+          "port": "1116",
+          "path": ["api", "shopping", "upload"]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "Admin - Approve Bill",
+      "request": {
+        "method": "PATCH",
+        "header": [
+          {
+            "key": "x-auth-token",
+            "value": "{{admin_token}}",
+            "type": "text"
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/json",
+            "type": "text"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"cashbackAmount\": 200\n}"
+        },
+        "url": {
+          "raw": "http://localhost:1116/api/shopping/approve/{{billId}}",
+          "protocol": "http",
+          "host": ["localhost"],
+          "port": "1116",
+          "path": ["api", "shopping", "approve", "{{billId}}"]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "Admin - Reject Bill",
+      "request": {
+        "method": "PATCH",
+        "header": [
+          {
+            "key": "x-auth-token",
+            "value": "{{admin_token}}",
+            "type": "text"
+          }
+        ],
+        "url": {
+          "raw": "http://localhost:1116/api/shopping/reject/{{billId}}",
+          "protocol": "http",
+          "host": ["localhost"],
+          "port": "1116",
+          "path": ["api", "shopping", "reject", "{{billId}}"]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "User - My Bills",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "x-auth-token",
+            "value": "{{auth_token}}",
+            "type": "text"
+          }
+        ],
+        "url": {
+          "raw": "http://localhost:1116/api/shopping/my-bills",
+          "protocol": "http",
+          "host": ["localhost"],
+          "port": "1116",
+          "path": ["api", "shopping", "my-bills"]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "Vendor - Bill Entries",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "x-auth-token",
+            "value": "{{vendor_token}}",
+            "type": "text"
+          }
+        ],
+        "url": {
+          "raw": "http://localhost:1116/api/shopping/vendor/bill-entries",
+          "protocol": "http",
+          "host": ["localhost"],
+          "port": "1116",
+          "path": ["api", "shopping", "vendor", "bill-entries"]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "Vendor - Owed Amount",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "x-auth-token",
+            "value": "{{vendor_token}}",
+            "type": "text"
+          }
+        ],
+        "url": {
+          "raw": "http://localhost:1116/api/shopping/vendor/owed",
+          "protocol": "http",
+          "host": ["localhost"],
+          "port": "1116",
+          "path": ["api", "shopping", "vendor", "owed"]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "Admin - Mark Vendor Paid",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "x-auth-token",
+            "value": "{{admin_token}}",
+            "type": "text"
+          }
+        ],
+        "url": {
+          "raw": "http://localhost:1116/api/shopping/admin/mark-paid/{{vendorId}}",
+          "protocol": "http",
+          "host": ["localhost"],
+          "port": "1116",
+          "path": ["api", "shopping", "admin", "mark-paid", "{{vendorId}}"]
+        }
+      },
+      "response": []
+    }
+  ]
+}

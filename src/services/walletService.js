@@ -7,12 +7,12 @@ export const getOrCreateWallet = async (userId, session = null) => {
   let wallet = await Wallet.findOne({ user: userId }).session(session);
 
   if (!wallet) {
-    wallet = await Wallet.create([{ user: userId, balance: 0 }], { session });
-    wallet = wallet[0];
+    wallet = await Wallet.create({ user: userId, balance: 0 }, { session });
   }
 
   return wallet;
 };
+
 
 export const updateWallet = async ({
   userId,
@@ -36,7 +36,7 @@ export const updateWallet = async ({
     amount,
     type,
     action,
-     balanceAfter: wallet.balance,
+    balanceAfter: wallet.balance,
     referenceId,
     referenceModel,
     description,

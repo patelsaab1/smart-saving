@@ -8,13 +8,8 @@ const adminSchema = new mongoose.Schema(
     password: { type: String, required: true, select: false },
     role: { type: String, enum: ["admin", "superadmin"], default: "admin" },
 
-    permissions: {
-      manageUsers: { type: Boolean, default: true },
-      manageVendors: { type: Boolean, default: true },
-      manageWallets: { type: Boolean, default: true },
-      manageReferrals: { type: Boolean, default: true },
-      manageInsurance: { type: Boolean, default: true },
-    },
+    // ✅ Admin Wallet Balance
+    wallet: { type: Number, default: 0 },
   },
   { timestamps: true }
 );

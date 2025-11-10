@@ -32,6 +32,7 @@ const authMiddleware = async (req, res, next) => {
 };
 
 export const adminMiddleware = async (req, res, next) => {
+  // console.log(req.headers.authorization)
   try {
     const authHeader = req.headers.authorization;
     if (!authHeader || !authHeader.startsWith("Bearer ")) {
@@ -51,6 +52,7 @@ export const adminMiddleware = async (req, res, next) => {
     req.user = admin;
     next();
   } catch (err) {
+    console.log(err)
     return res.status(401).json({ success: false, message: "Invalid or expired token" });
   }
 };

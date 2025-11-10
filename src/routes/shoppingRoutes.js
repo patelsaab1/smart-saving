@@ -1,22 +1,30 @@
+// src/routes/shoppingRoutes.js (New/Updated)
 import express from "express";
-import {
-  uploadBill,
-  approveBill,
-  rejectBill,
-} from "../controllers/shoppingController.js";
+import { uploadBill, approveBill, rejectBill, myBills, getBillAnalytics, getAllBillsAdmin, vendorBillEntries, vendorOwedAmount, vendorPaymentHistory } from "../controllers/shoppingController.js";
+import { authMiddleware, adminMiddleware } from "../middlewares/authMiddleware.js";
 
-import { adminMiddleware, authMiddleware } from "../middlewares/authMiddleware.js";
+import { uploadBillimage } from "../services/cloudinary.js";
 
 const router = express.Router();
 
-// ✅ User uploads shopping bill
-router.post("/upload-bill", authMiddleware, uploadBill);
+router.post(
+  "/upload",
+  authMiddleware,
+  uploadBillimage.single("billImage"),
+  uploadBill
+);
+router.get("/dashboard/summary", authMiddleware, getBillAnalytics);
 
 
-// ✅ Admin approves bill (with cashback + bonuses)
-router.patch("/approve-bill/:billId", authMiddleware, adminMiddleware, approveBill);
+router.get("/admin/bills", adminMiddleware, getAllBillsAdmin);
+router.patch("/bill/approve/:billId", adminMiddleware, approveBill);
+router.patch("/reject/:billId", adminMiddleware, rejectBill);
+router.get("/my-bills", authMiddleware, myBills);
 
-// ✅ Admin rejects bill
-router.patch("/reject-bill/:billId", authMiddleware, adminMiddleware, rejectBill);
+
+router.get("/vendor/shop-bill", authMiddleware, vendorBillEntries);
+router.get("/vendor/owed", authMiddleware, vendorOwedAmount);
+router.get("/vendor/payment-history", authMiddleware, vendorPaymentHistory);
+// router.post("/admin/mark-paid/:vendorId", adminMiddleware, markVendorPaid);
 
 export default router;

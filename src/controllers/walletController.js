@@ -2,8 +2,8 @@ import mongoose from "mongoose";
 import BankAccount from "../models/BankAccount.js";
 import Wallet from "../models/Wallet.js";
 import WalletTransaction from "../models/WalletTransaction.js";
-import Withdrawal from "../models/Withdrawal.js";
 import apiResponse from "../utils/apiResponse.js";
+
 
 
 
@@ -94,84 +94,6 @@ export const Bank = async (req, res) => {
   }
 };
 
-export const requestWithdrawal = async (req, res) => {
-  try {
-    const { amount, bankAccountId, upiId } = req.body;
-    const userId = req.user.id;
-
-    if (!amount || amount < 100) {
-      return res
-        .status(400)
-        .json(apiResponse({ success: false, message: "Minimum withdrawal amount is ₹100" }));
-    }
-
-    // Wallet Check
-    const wallet = await Wallet.findOne({ user: userId });
-    if (!wallet || wallet.balance < amount) {
-      return res
-        .status(400)
-        .json(apiResponse({ success: false, message: "Insufficient wallet balance" }));
-    }
-
-    // --- MODE 1: BANK WITHDRAWAL ---
-    let bank = null;
-    if (bankAccountId) {
-      bank = await BankAccount.findOne({ _id: bankAccountId, user: userId });
-      if (!bank) {
-        return res
-          .status(400)
-          .json(apiResponse({ success: false, message: "Invalid bank account" }));
-      }
-    }
-
-    // --- MODE 2: UPI WITHDRAWAL ---
-    if (!bankAccountId && upiId) {
-      if (!/^[a-zA-Z0-9.\-_]{3,}@[a-zA-Z]{3,}$/.test(upiId)) {
-        return res
-          .status(400)
-          .json(apiResponse({ success: false, message: "Invalid UPI ID format" }));
-      }
-    }
-
-    // Create withdrawal request
-    const withdrawal = await Withdrawal.create({
-      user: userId,
-      bankAccount: bankAccountId ?? null,
-      amount,
-      status: "PENDING",
-      upiId: bankAccountId ? null : upiId // store UPI if mode is UPI
-    });
-
-    // Deduct wallet balance
-    wallet.balance -= amount;
-    await wallet.save();
-
-    // Log wallet transaction
-    await WalletTransaction.create({
-      user: userId,
-      amount: -amount,
-      balanceAfter: wallet.balance, // ✅ NEW - wallet balance after deduction
-      type: "DEBIT",
-      action: "withdrawal",
-      referenceId: withdrawal._id,
-      referenceModel: "Withdrawal",
-      status: "pending",
-      description: bankAccountId ? "Withdrawal to Bank" : "Withdrawal to UPI"
-    });
-
-
-    return res.json(
-      apiResponse({
-        success: true,
-        message: "Withdrawal request submitted",
-        data: withdrawal
-      })
-    );
-
-  } catch (err) {
-    return res.status(500).json(apiResponse({ success: false, message: err.message }));
-  }
-};
 
 
 export const getWalletAnalytics = async (req, res) => {
@@ -238,60 +160,3 @@ export const getWalletAnalytics = async (req, res) => {
   }
 };
 
-
-
-export const approveWithdrawal = async (req, res) => {
-  try {
-    const { id } = req.params;
-
-    const withdrawal = await Withdrawal.findById(id);
-    if (!withdrawal || withdrawal.status !== "PENDING") {
-      return res.status(400).json(apiResponse({ success: false, message: "Invalid withdrawal request" }));
-    }
-
-    withdrawal.status = "PAID";
-    withdrawal.processedAt = new Date();
-    await withdrawal.save();
-
-    await WalletTransaction.updateOne(
-      { referenceId: id, action: "withdrawal" },
-      { status: "completed" }
-    );
-
-    return res.json(apiResponse({ success: true, message: "Withdrawal approved successfully" }));
-
-  } catch (err) {
-    return res.status(500).json(apiResponse({ success: false, message: err.message }));
-  }
-};
-
-export const rejectWithdrawal = async (req, res) => {
-  try {
-    const { id } = req.params;
-
-    const withdrawal = await Withdrawal.findById(id);
-    if (!withdrawal || withdrawal.status !== "PENDING") {
-      return res.status(400).json(apiResponse({ success: false, message: "Invalid withdrawal request" }));
-    }
-
-    withdrawal.status = "REJECTED";
-    withdrawal.processedAt = new Date();
-    await withdrawal.save();
-
-    // Refund wallet
-    const wallet = await Wallet.findOne({ user: withdrawal.user });
-    wallet.balance += withdrawal.amount;
-    await wallet.save();
-
-    // Update wallet transaction
-    await WalletTransaction.updateOne(
-      { referenceId: id, action: "withdrawal" },
-      { status: "failed" }
-    );
-
-    return res.json(apiResponse({ success: true, message: "Withdrawal rejected and amount refunded" }));
-
-  } catch (err) {
-    return res.status(500).json(apiResponse({ success: false, message: err.message }));
-  }
-};

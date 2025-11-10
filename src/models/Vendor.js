@@ -2,11 +2,21 @@ import mongoose from "mongoose";
 
 const vendorSchema = new mongoose.Schema(
   {
-    user: { type: mongoose.Schema.Types.ObjectId, ref: "User", required: true, unique: true },
-   
-    discountRate: { type: Number, default: 10 }, 
+    user: { type: mongoose.Schema.Types.ObjectId, ref: "User", required: true },
 
-    isVerified: { type: Boolean, default: false },
+    shopName: { type: String, required: true },
+    shopCategory: { type: String, required: true },
+    shopAddress: { type: String, required: true },
+
+    gstNumber: { type: String },
+     kycDocuments: {
+      pan: String,
+      gst: String,
+      license: String,
+    },
+    businessLogo: { type: String },
+
+    isVerified: { type: Boolean, default: false }, // ✅ Admin verification
   },
   { timestamps: true }
 );

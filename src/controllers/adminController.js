@@ -35,6 +35,7 @@ export const registerAdmin = async (req, res) => {
 export const loginAdmin = async (req, res) => {
   try {
     const { email, password } = req.body;
+    console.log("admin rohit patel ")
     const admin = await Admin.findOne({ email }).select("+password");
     if (!admin) {
       return res.status(404).json(apiResponse({ success: false, message: "Admin not found" }));
@@ -43,7 +44,8 @@ export const loginAdmin = async (req, res) => {
     if (!isMatch) {
       return res.status(400).json(apiResponse({ success: false, message: "Invalid credentials" }));
     }
-    const token = jwt.sign({ id: admin._id, role: admin.role }, process.env.JWT_SECRET, { expiresIn: "7d" });
+    const token = jwt.sign({ id: admin._id, role: admin.role }, process.env.JWT_SECRET, { expiresIn: "30d" });
+    // console.log(token)
     return res.json(apiResponse({
       success: true,
       message: "Login successful",
@@ -75,6 +77,7 @@ export const approveRateList = async (req, res) => {
     if (!shop) return res.status(404).json(apiResponse({ success: false, message: "Shop not found" }));
 
     shop.rateListStatus = action === "approve" ? "approved" : "rejected";
+    shop.status= "active";
     await shop.save();
 
     return res.json(apiResponse({ message: `Rate list ${shop.rateListStatus}`, data: shop }));

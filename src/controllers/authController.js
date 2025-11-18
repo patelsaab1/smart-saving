@@ -363,101 +363,130 @@ export const getProfile = async (req, res) => {
   }
 };
 
+
+// ------------------- USER / VENDOR PROFILE UPDATE -------------------
 export const updateProfile = async (req, res) => {
   try {
     const userId = req.user.id;
-    const {
-      name,
-      phone,
-      address,
-      shopName,
-      shopCategory,
-      shopAddress,
-      gstNumber
-    } = req.body;
+    const { name, phone, address, gender, dob } = req.body;
 
     const updateUserData = {};
     if (name) updateUserData.name = name;
     if (phone) updateUserData.phone = phone;
-    if (address) updateUserData.address = address;
+    if (gender) updateUserData.gender = gender;
+    if (dob) updateUserData.dob = dob;
 
-    // Profile picture (user only)
+    // ✅ Parse address JSON safely
+    if (address) {
+      try {
+        updateUserData.address =
+          typeof address === "string" ? JSON.parse(address) : address;
+      } catch {
+        updateUserData.address = {};
+      }
+    }
+console.log("--------", req.file)
+    // ✅ Profile Picture Upload
     if (req.file && req.file.fieldname === "profilePic") {
       updateUserData.profilePic = req.file.path;
     }
 
+    // ✅ Update user
     let user = await User.findByIdAndUpdate(userId, updateUserData, {
       new: true,
-      runValidators: true
+      runValidators: true,
     }).select("-password -otp -otpExpiry");
 
-    if (!user) {
-      return res.status(404).json(apiResponse({ success: false, message: "User not found" }));
-    }
+    if (!user)
+      return res
+        .status(404)
+        .json(apiResponse({ success: false, message: "User not found" }));
 
-    // ✅ If vendor fields exist → Vendor section
-    if (shopName || shopCategory || shopAddress || gstNumber || req.files) {
-      // Convert to vendor if not already
-      if (user.role !== "vendor") {
-        user.role = "vendor";
-        await user.save();
-      }
-
-      // Fetch vendor entry
-      let vendor = await Vendor.findOne({ user: userId });
-      if (!vendor) {
-        vendor = await Vendor.create({
-          user: userId,
-          shopName,
-          shopCategory,
-          shopAddress,
-          gstNumber
-        });
-      }
-
-      // Update shop details
-      if (shopName) vendor.shopName = shopName;
-      if (shopCategory) vendor.shopCategory = shopCategory;
-      if (shopAddress) vendor.shopAddress = shopAddress;
-      if (gstNumber) vendor.gstNumber = gstNumber;
-
-      // ✅ Business Logo Update
-      if (req.file && req.file.fieldname === "businessLogo") {
-        vendor.businessLogo = req.file.path;
-      }
-
-      // ✅ KYC upload only if new docs provided
-      const kycDocs = vendor.kycDocuments || {};
-
-      const hasOldKyc = kycDocs.pan || kycDocs.gst || kycDocs.license;
-
-      if (!hasOldKyc) {
-        // Require at least one KYC if none exists
-        const { pan, gst, license } = req.files || {};
-        if (!pan && !gst && !license) {
-          return res.status(400).json(apiResponse({
-            success: false,
-            message: "Please upload at least one KYC document (PAN / GST / License)"
-          }));
-        }
-      }
-
-      // Save newly uploaded docs
-      if (req.files?.pan) vendor.kycDocuments.pan = req.files.pan[0].path;
-      if (req.files?.gst) vendor.kycDocuments.gst = req.files.gst[0].path;
-      if (req.files?.license) vendor.kycDocuments.license = req.files.license[0].path;
-
-      await vendor.save();
-    }
-
-    return res.json(apiResponse({
-      success: true,
-      message: "Profile updated successfully ✅",
-      data: user
-    }));
-
+    return res.json(
+      apiResponse({
+        success: true,
+        message: "Profile updated successfully ✅",
+        data: user,
+      })
+    );
   } catch (err) {
     console.error("❌ Update Profile Error:", err);
-    return res.status(500).json(apiResponse({ success: false, message: "Server error" }));
+    return res
+      .status(500)
+      .json(apiResponse({ success: false, message: "Server error" }));
+  }
+};
+
+// ------------------- BECOME VENDOR -------------------
+export const becomeVendor = async (req, res) => {
+  try {
+    const userId = req.user.id;
+    let { shopName, shopCategory, shopAddress, gstNumber } = req.body;
+
+    // ✅ KYC Validation
+    const hasKyc =
+      req.files?.pan?.[0] ||
+      req.files?.gst?.[0] ||
+      req.files?.license?.[0];
+
+    if (!hasKyc) {
+      return res.status(400).json(
+        apiResponse({
+          success: false,
+          message:
+            "At least one KYC document (PAN / GST / License) is required.",
+        })
+      );
+    }
+
+    // ✅ Update user role & activate
+    let user = await User.findById(userId);
+    if (!user)
+      return res
+        .status(404)
+        .json(apiResponse({ success: false, message: "User not found" }));
+
+    user.role = "vendor";
+    user.isActive = true;
+    user.activatedAt = new Date();
+    await user.save();
+
+    // ✅ Vendor section
+    let vendor = await Vendor.findOne({ user: userId });
+    if (!vendor) {
+      vendor = new Vendor({
+        user: userId,
+        shopName,
+        shopCategory,
+        shopAddress,
+        gstNumber,
+      });
+    } else {
+      vendor.shopName = shopName;
+      vendor.shopCategory = shopCategory;
+      vendor.shopAddress = shopAddress;
+      vendor.gstNumber = gstNumber;
+    }
+
+    // ✅ Upload KYC
+    if (req.files?.pan?.[0]) vendor.kycDocuments.pan = req.files.pan[0].path;
+    if (req.files?.gst?.[0]) vendor.kycDocuments.gst = req.files.gst[0].path;
+    if (req.files?.license?.[0])
+      vendor.kycDocuments.license = req.files.license[0].path;
+
+    await vendor.save();
+
+    return res.json(
+      apiResponse({
+        success: true,
+        message: "Vendor profile created successfully ✅",
+        data: { user, vendor },
+      })
+    );
+  } catch (err) {
+    console.error("❌ Become Vendor Error:", err);
+    return res
+      .status(500)
+      .json(apiResponse({ success: false, message: "Server error" }));
   }
 };

@@ -24,9 +24,10 @@ const createStorage = (folder) =>
 // 🔹 Different uploaders
 export const uploadProfile = multer({ storage: createStorage("profiles") });
 export const uploadBillimage = multer({ storage: createStorage("bills") });
-export const uploadVendor = multer({ storage: createStorage("vendors") });
+export const uploadVendorAll = multer({ storage: createStorage("vendors") });
 export const uploadVendorKyc = multer({ storage: createStorage("vendors/kyc") });
-
+export const uploadShopDocs = multer({ storage: createStorage("shops/docs") });
+export const uploadRateListFiles = multer({ storage: createStorage("shops/rate-lists") });
 export const uploadOther = multer({ storage: createStorage("others") });
 
 

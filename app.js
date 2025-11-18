@@ -63,5 +63,5 @@ app.use(errorHandler);
 
 const PORT = process.env.PORT || 1116;
 app.listen(PORT, () => {
-  console.log(`\n⚡ Smart Saving API is running on: http://localhost:${PORT}\n`);
+  console.log(`\n⚡ Smart Saving API is running on Shree SeetRam 🙏: http://localhost:${PORT}\n`);
 });

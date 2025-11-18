@@ -7,9 +7,10 @@ import {
   updateProfile,
   loginWithPassword,
   registerVendor,
+  becomeVendor,
 } from "../controllers/authController.js";
 import { authMiddleware } from "../middlewares/authMiddleware.js";
-import { uploadProfile, uploadVendor, uploadVendorKyc } from "../services/cloudinary.js";
+import { uploadProfile, uploadVendorAll } from "../services/cloudinary.js";
 
 const router = express.Router();
 
@@ -24,16 +25,16 @@ router.post("/login", loginWithPassword);
 router.get("/profile", authMiddleware, getProfile);
 router.put("/profile", authMiddleware, uploadProfile.single("profilePic"), updateProfile);
 
-router.put(
-  "/vendor/profile",
+// vendor profile + KYC
+router.post(
+  "/become-vendor",
   authMiddleware,
-  uploadVendor.single("businessLogo"), // shop logo
-  uploadVendorKyc.fields([
+  uploadVendorAll.fields([
     { name: "pan", maxCount: 1 },
     { name: "gst", maxCount: 1 },
-    { name: "license", maxCount: 1 }
+    { name: "license", maxCount: 1 },
   ]),
-  updateProfile
+  becomeVendor
 );
 
 export default router; 

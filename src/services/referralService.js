@@ -9,6 +9,8 @@ const pairRewards = [
   { pair: 3, referralAmount: 3000, incrementBonus: 3000, total: 6000 },
   { pair: 4, referralAmount: 3000, incrementBonus: 4000, total: 7000 },
   { pair: 5, referralAmount: 3000, incrementBonus: 5000, total: 8000 },
+  { pair: 6, referralAmount: 3000, incrementBonus: 6000, total: 9000 },
+  { pair: 7, referralAmount: 3000, incrementBonus: 7000, total: 9000 },
   { pair: 20, referralAmount: 3000, incrementBonus: 20000, total: 23000, extra: "Domestic Trip + Awards" },
 ];
 
@@ -53,23 +55,24 @@ export const handleReferralBonus = async (newUserId) => {
       referrer: referrer._id
     }).populate("referredUser");
 
+    console.log("planrefer count ", planAReferrals)
     // Pair Logic
     let pairs = 0;
     if (planAReferrals >= 3) {
       pairs = 1 + Math.floor((planAReferrals - 3) / 6);
     }
-
+console.log("pair count ",pairCount)
     // If new pairs unlocked, award rewards
     if (pairs > referrer.pairCount) {
       const unlocked = pairs - referrer.pairCount;
 
       for (let i = 1; i <= unlocked; i++) {
         const currentPairNo = referrer.pairCount + i;
-        const reward = pairRewards.find(r => r.pair === currentPairNo) || { total: 3000 };
+        const reward = pairRewards.find(r => r.pair === currentPairNo) || { incrementBonus: 1000 };
 
         await updateWallet({
           userId: referrer._id,
-          amount: reward.total,
+          amount: reward.incrementBonus,
           action: "pair_bonus",
           referenceId: newUser._id,
           description: `Pair ${currentPairNo} bonus awarded`,

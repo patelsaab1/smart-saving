@@ -155,13 +155,13 @@ export const approveBill = async (req, res) => {
       bill.vendorProfitProcessed = true;
       // ✅ Send mail to Vendor
 
-      
-if (vendor && vendor.email) {
-  await sendSmartSavingMail(
-    vendor.email,
-    "बिल सफलतापूर्वक सत्यापित ✅",
-    "SmartSaving बिल अनुमोदन सूचना",
-    `
+
+      if (vendor && vendor.email) {
+        await sendSmartSavingMail(
+          vendor.email,
+          "बिल सफलतापूर्वक सत्यापित ✅",
+          "SmartSaving बिल अनुमोदन सूचना",
+          `
       नमस्कार ${vendor.name || "Vendor"} जी,<br/><br/>
 
       आपके स्टोर <b>${bill.shop.shopName}</b> पर हुई खरीदारी का बिल SmartSaving द्वारा सफलतापूर्वक सत्यापित कर दिया गया है।<br/><br/>
@@ -179,11 +179,11 @@ if (vendor && vendor.email) {
       धन्यवाद,<br/>
       <b>SmartSaving Team</b> 🌱
     `
-  );
-}
+        );
+      }
 
-}
-      
+    }
+
 
     // ✅ FIRST SHOPPING CASHBACK (deducts admin share)
     if (!user.firstShoppingCashbackClaimed) {
@@ -201,7 +201,7 @@ if (vendor && vendor.email) {
         });
       }
 
-      adminShare -= actualFirstCashback; 
+      adminShare -= actualFirstCashback;
 
       user.firstShoppingCashbackClaimed = true;
       bill.firstCashbackProcessed = true;
@@ -244,7 +244,7 @@ if (vendor && vendor.email) {
         referrerBonus,
         adminShare,
         vendorProfit: ProfitAmount,
-      
+
       }
     }));
 
@@ -299,19 +299,37 @@ export const myBills = async (req, res) => {
 // Vendor Bill Entries (Bills for their shops)
 export const vendorBillEntries = async (req, res) => {
   try {
+    // Find all shops owned by this vendor
     const shops = await Shop.find({ owner: req.user._id }).select("_id shopName");
+
     const shopIds = shops.map(s => s._id);
-console.log(shops)
+
+    // Fetch all bills for these shops
     const bills = await ShoppingBill.find({ shop: { $in: shopIds } })
-      .populate("user")
-      .populate("shop")
+      .populate({
+        path: "user",
+        select: "name email phone address", // ✅ Only include safe fields
+      })
+      .populate({
+        path: "shop",
+        select: "shopName category subcategory address contactNumber", // ✅ Exclude sensitive fields
+      })
       .sort({ createdAt: -1 });
 
-    return res.json(apiResponse({ success: true, data: { shops, bills } }));
+    return res.json(
+      apiResponse({
+        success: true,
+        data: { shops, bills },
+      })
+    );
   } catch (err) {
-    return res.status(500).json(apiResponse({ success: false, message: "Server Error" }));
+    console.error("❌ vendorBillEntries error:", err);
+    return res
+      .status(500)
+      .json(apiResponse({ success: false, message: "Server Error" }));
   }
 };
+
 
 
 // Vendor Owed to Admin
@@ -344,6 +362,52 @@ export const vendorPaymentHistory = async (req, res) => {
 };
 
 
+export const vendorPendingProfitDetails = async (req, res) => {
+  try {
+    const pendingProfits = await VendorProfit.find({
+      vendor: req.user._id,
+      status: "pending"
+    })
+      .populate("bill", "billAmount createdAt")
+      .populate("bill.user", "name phoneNumber")
+      .populate("bill.shop", "shopName")
+      .sort({ createdAt: -1 });
+
+    const totalPending = pendingProfits.reduce((sum, record) => sum + record.amount, 0);
+
+    return res.json(apiResponse({
+      success: true,
+      message: "Vendor pending profit details",
+      data: { totalPending, pendingProfits }
+    }));
+
+  } catch (err) {
+    console.error(err);
+    return res.status(500).json(apiResponse({ success: false, message: "Server error" }));
+  }
+};
+
+export const vendorProfitHistory = async (req, res) => {
+  try {
+    const history = await VendorProfit.find({
+      vendor: req.user._id,
+      status: "paid"
+    })
+      .populate("paidBy", "name")
+      .populate("bill", "billAmount createdAt")
+      .sort({ paidAt: -1 });
+
+    return res.json(apiResponse({
+      success: true,
+      message: "Vendor payment history",
+      data: history
+    }));
+  } catch (err) {
+    return res.status(500).json(apiResponse({ success: false, message: "Server error" }));
+  }
+};
+
+
 // Admin Mark Vendor Paid
 export const markVendorPaid = async (req, res) => {
   try {
@@ -360,32 +424,75 @@ export const markVendorPaid = async (req, res) => {
   }
 };
 
-
 export const getBillAnalytics = async (req, res) => {
   try {
-    const stats = await ShoppingBill.aggregate([
+    const vendorId = req.user._id;
+
+    // 1. All VendorProfit records (pending + paid)
+    const profitStats = await VendorProfit.aggregate([
+      { $match: { vendor: vendorId } },
+      {
+        $group: {
+          _id: "$status",
+          totalAmount: { $sum: "$amount" },
+          count: { $sum: 1 },
+        },
+      },
+    ]);
+
+    const pendingProfit = profitStats.find(p => p._id === "pending") || { totalAmount: 0, count: 0 };
+    const paidProfit    = profitStats.find(p => p._id === "paid")    || { totalAmount: 0, count: 0 };
+
+    // 2. Bill counts (by status) for the vendor's shops
+    const shops = await Shop.find({ owner: vendorId }).select("_id");
+    const shopIds = shops.map(s => s._id);
+
+    const billStats = await ShoppingBill.aggregate([
+      { $match: { shop: { $in: shopIds } } },
       {
         $group: {
           _id: "$status",
           count: { $sum: 1 },
-          totalAmount: { $sum: "$billAmount" },
-          totalCashback: { $sum: "$cashbackAmount" }
-        }
-      }
+          totalBill: { $sum: "$billAmount" },
+          totalCashback: { $sum: "$cashbackAmount" },
+        },
+      },
     ]);
 
-    const formatted = {
-      pending: stats.find(s => s._id === "pending") || { count: 0, totalAmount: 0 },
-      approved: stats.find(s => s._id === "approved") || { count: 0, totalAmount: 0 },
-      rejected: stats.find(s => s._id === "rejected") || { count: 0, totalAmount: 0 },
+    const pendingBills  = billStats.find(b => b._id === "pending")  || { count: 0, totalBill: 0, totalCashback: 0 };
+    const approvedBills = billStats.find(b => b._id === "approved") || { count: 0, totalBill: 0, totalCashback: 0 };
+    const rejectedBills = billStats.find(b => b._id === "rejected") || { count: 0, totalBill: 0, totalCashback: 0 };
+
+    const totalBills = pendingBills.count + approvedBills.count + rejectedBills.count;
+    const totalCashbackGenerated = approvedBills.totalCashback;
+
+    // 3. Final payload
+    const data = {
+      // Vendor's profit (cashback earned)
+      totalProfit: totalCashbackGenerated,                     // Total cashback from approved bills
+      owedToAdmin: pendingProfit.totalAmount,                  // Admin owes vendor (pending VendorProfit)
+      paidToVendor: paidProfit.totalAmount,                    // Already paid by admin
+
+      // Bill analytics
+      totalBills,
+      pendingBills: pendingBills.count,
+      approvedBills: approvedBills.count,
+      rejectedBills: rejectedBills.count,
+
+      // Optional: raw aggregates (for tables)
+      pendingProfitDetails: pendingProfit,
+      paidProfitDetails: paidProfit,
     };
 
-    return res.json(apiResponse({
-      success: true,
-      message: "Analytics summary",
-      data: formatted
-    }));
+    return res.json(
+      apiResponse({
+        success: true,
+        message: "Vendor dashboard analytics",
+        data,
+      })
+    );
   } catch (err) {
+    console.error("vendorDashboardAnalytics error:", err);
     return res.status(500).json(apiResponse({ success: false, message: "Server error" }));
   }
 };

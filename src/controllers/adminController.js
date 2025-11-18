@@ -108,3 +108,92 @@ export const updateShopStatus = async (req, res) => {
     return res.status(500).json(apiResponse({ success: false, message: "Server error" }));
   }
 };
+
+export const getAllShops = async (req, res) => {
+  try {
+    const { status } = req.query;
+
+    const filter = {};
+    if (status && status !== "all") filter.status = status;
+
+    const shops = await Shop.find(filter)
+      .populate("owner", "name email phone")
+      .sort({ createdAt: -1 });
+
+    return res.json(
+      apiResponse({
+        success: true,
+        message: "All shops fetched successfully",
+        data: shops,
+      })
+    );
+  } catch (err) {
+    console.error("❌ getAllShops error:", err);
+    res
+      .status(500)
+      .json(apiResponse({ success: false, message: "Server error" }));
+  }
+};
+
+// ✅ Approve a shop
+export const approveShop = async (req, res) => {
+  try {
+    const { shopId } = req.params;
+    const adminId = req.user._id;
+
+    const shop = await Shop.findById(shopId);
+    if (!shop)
+      return res
+        .status(404)
+        .json(apiResponse({ success: false, message: "Shop not found" }));
+
+    shop.status = "active";
+    shop.rateListStatus = "approved";
+    shop.approvedBy = adminId;
+    shop.approvedAt = new Date();
+    await shop.save();
+
+    return res.json(
+      apiResponse({
+        success: true,
+        message: "Shop approved successfully ✅",
+        data: shop,
+      })
+    );
+  } catch (err) {
+    console.error("❌ approveShop error:", err);
+    res
+      .status(500)
+      .json(apiResponse({ success: false, message: "Server error" }));
+  }
+};
+
+// ✅ Reject or block a shop
+export const rejectShop = async (req, res) => {
+  try {
+    const { shopId } = req.params;
+    const { reason } = req.body;
+
+    const shop = await Shop.findById(shopId);
+    if (!shop)
+      return res
+        .status(404)
+        .json(apiResponse({ success: false, message: "Shop not found" }));
+
+    shop.status = "blocked";
+    await shop.save();
+
+    return res.json(
+      apiResponse({
+        success: true,
+        message: `Shop blocked${reason ? `: ${reason}` : ""}`,
+        data: shop,
+      })
+    );
+  } catch (err) {
+    console.error("❌ rejectShop error:", err);
+    res
+      .status(500)
+      .json(apiResponse({ success: false, message: "Server error" }));
+  }
+};

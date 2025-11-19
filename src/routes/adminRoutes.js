@@ -7,7 +7,7 @@ router.post("/login", loginAdmin);
 
 
 // ✅ Get all shops 
-router.get("/shops", adminMiddleware, getAllShops);
+router.get("/shops", getAllShops);
 router.put("/shops/:shopId/approve", adminMiddleware, approveShop);
 router.put("/shops/:shopId/reject", adminMiddleware, rejectShop);
 router.put("/shops/:shopId/approve-rate-list", adminMiddleware, approveRateList);

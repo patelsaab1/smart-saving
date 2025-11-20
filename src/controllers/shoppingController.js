@@ -296,10 +296,7 @@ export const myBills = async (req, res) => {
   }
 };
 
-// Vendor Bill Entries (Bills for their shops)
-import VendorProfit from "../models/VendorProfit.js";
-import ShoppingBill from "../models/ShoppingBill.js";
-import Shop from "../models/Shop.js";
+
 
 export const vendorBillEntries = async (req, res) => {
   try {

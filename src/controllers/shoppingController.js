@@ -297,29 +297,57 @@ export const myBills = async (req, res) => {
 };
 
 // Vendor Bill Entries (Bills for their shops)
+import VendorProfit from "../models/VendorProfit.js";
+import ShoppingBill from "../models/ShoppingBill.js";
+import Shop from "../models/Shop.js";
+
 export const vendorBillEntries = async (req, res) => {
   try {
-    // Find all shops owned by this vendor
+    // Step 1: Vendor ke sare shops
     const shops = await Shop.find({ owner: req.user._id }).select("_id shopName");
 
     const shopIds = shops.map(s => s._id);
 
-    // Fetch all bills for these shops
+    // Step 2: All bills of that vendor shops
     const bills = await ShoppingBill.find({ shop: { $in: shopIds } })
       .populate({
         path: "user",
-        select: "name email phone address", // ✅ Only include safe fields
+        select: "name email phone address",
       })
       .populate({
         path: "shop",
-        select: "shopName category subcategory address contactNumber", // ✅ Exclude sensitive fields
+        select: "shopName category subcategory address contactNumber",
       })
       .sort({ createdAt: -1 });
+
+    // Step 3: For each bill, find its vendor profit
+    const finalData = [];
+
+    for (const bill of bills) {
+      const vendorProfit = await VendorProfit.findOne({
+        bill: bill._id,
+        vendor: req.user._id
+      });
+
+      finalData.push({
+        bill,
+        vendorProfit: vendorProfit
+          ? {
+              amount: vendorProfit.amount,
+              status: vendorProfit.status,
+              paidAt: vendorProfit.paidAt,
+            }
+          : null
+      });
+    }
 
     return res.json(
       apiResponse({
         success: true,
-        data: { shops, bills },
+        data: {
+          shops,
+          bills: finalData,
+        },
       })
     );
   } catch (err) {

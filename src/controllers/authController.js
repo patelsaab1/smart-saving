@@ -58,7 +58,7 @@ export const register = async (req, res) => {
 
     await user.save();
     await Wallet.create({ user: user._id, balance: 0 });
-    
+
     return res.status(201).json(
       apiResponse({
         success: true,
@@ -329,7 +329,7 @@ export const getProfile = async (req, res) => {
     if (user.role == 'vendor') {
       const vendor = await Vendor.findOne({ user: user._id });
       // console.log("--------------------------",vendor)
-      
+
       if (vendor) {
         vendorData = {
           shopName: vendor.shopName,
@@ -338,7 +338,7 @@ export const getProfile = async (req, res) => {
           shopAddress: vendor.shopAddress,
           gstNumber: vendor.gstNumber || null,
         };
-      
+
       }
     }
 
@@ -385,7 +385,7 @@ export const updateProfile = async (req, res) => {
         updateUserData.address = {};
       }
     }
-console.log("--------", req.file)
+    console.log("--------", req.file)
     // ✅ Profile Picture Upload
     if (req.file && req.file.fieldname === "profilePic") {
       updateUserData.profilePic = req.file.path;

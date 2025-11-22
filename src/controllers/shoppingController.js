@@ -21,7 +21,7 @@ export const uploadBill = async (req, res) => {
         message: "Bill image is required!"
       }));
     }
-    console.log(" req.file.path", req.file)
+    // console.log(" req.file.path", req.file)
 
     // Validate shop
     const shop = await Shop.findById(shopId);
@@ -113,8 +113,8 @@ export const approveBill = async (req, res) => {
     }
 
     // Calculate Percentages
-    const userCashback = ProfitAmount * 0.40;
-    const referrerBonus = ProfitAmount * 0.20;
+    const userCashback = ProfitAmount * 0.50;
+    const referrerBonus = ProfitAmount * 0.10;
     let adminShare = ProfitAmount * 0.40;
 
     // ✅ USER CASHBACK → Wallet + Transaction
@@ -187,13 +187,13 @@ export const approveBill = async (req, res) => {
 
     // ✅ FIRST SHOPPING CASHBACK (deducts admin share)
     if (!user.firstShoppingCashbackClaimed) {
-      const firstCashback = user.planType === "A" ? 500 : 250;
+      const firstCashback = user.planType === "A" ? 500 : 200;
 
       const actualFirstCashback = Math.min(adminShare, firstCashback); // Prevent negative admin
-      if (actualFirstCashback > 0) {
+      if (firstCashback > 0) {
         await updateWallet({
           userId: user._id,
-          amount: actualFirstCashback,
+          amount: firstCashback,
           action: "first_shopping_cashback",
           referenceId: bill._id,
           referenceModel: "ShoppingBill",
@@ -206,6 +206,7 @@ export const approveBill = async (req, res) => {
       user.firstShoppingCashbackClaimed = true;
       bill.firstCashbackProcessed = true;
       await user.save();
+      await bill.save();
     }
 
     // ✅ REFERRER BONUS → Only if plan A
@@ -218,7 +219,7 @@ export const approveBill = async (req, res) => {
           action: "referral_bonus",
           referenceId: bill._id,
           referenceModel: "ShoppingBill",
-          description: `20% referral bonus on bill ₹${bill.billAmount}`
+          description: `referral bonus on bill ₹${user.name}`
         });
       }
     }
@@ -448,102 +449,6 @@ export const markVendorPaid = async (req, res) => {
     return res.status(500).json(apiResponse({ success: false, message: "Server error" }));
   }
 };
-
-// export const getBillAnalytics = async (req, res) => {
-//   try {
-//     const vendorId = req.user._id;
-
-//     // 1. All VendorProfit records (pending + paid)
-//     const profitStats = await VendorProfit.aggregate([
-//       { $match: { vendor: vendorId } },
-//       {
-//         $group: {
-//           _id: "$status",
-//           totalAmount: { $sum: "$amount" },
-//           count: { $sum: 1 },
-//         },
-//       },
-//     ]);
-
-//     const pendingProfit = profitStats.find(p => p._id === "pending") || { totalAmount: 0, count: 0 };
-//     const paidProfit    = profitStats.find(p => p._id === "paid")    || { totalAmount: 0, count: 0 };
-
-//     // 2. Bill counts (by status) for the vendor's shops
-//     const shops = await Shop.find({ owner: vendorId }).select("_id");
-//     console.log("shop", shops)
-//     const shopIds = shops.map(s => s._id);
-
-//     // ---- 3. Vendor Total Shopping Summary ----
-// const shoppingSummary = await ShoppingBill.aggregate([
-//   { $match: { shop: { $in: shopIds }, status: "approved" } },
-
-//   {
-//     $group: {
-//       _id: null,
-//       totalShoppingAmount: { $sum: "$billAmount" },   // कितनी total खरीदारी आपकी shop पर हुई
-//       totalCashbackGiven: { $sum: "$cashbackAmount" }, // total cashback generated from your shop
-//       totalUsers: { $addToSet: "$user" }               // unique users
-//     }
-//   },
-//   {
-//     $project: {
-//       _id: 0,
-//       totalShoppingAmount: 1,
-//       totalCashbackGiven: 1,
-//       totalUsersCount: { $size: "$totalUsers" }
-//     }
-//   }
-// ]);
-
-// // Default if no bills exist
-// const shopSummary = shoppingSummary[0] || {
-//   totalShoppingAmount: 0,
-//   totalCashbackGiven: 0,
-//   totalUsersCount: 0
-// };
-
-//     console.log("billStats", billStats)
-
-//     const pendingBills  = billStats.find(b => b._id === "pending")  || { count: 0, totalBill: 0, totalCashback: 0 };
-//     const approvedBills = billStats.find(b => b._id === "approved") || { count: 0, totalBill: 0, totalCashback: 0 };
-//     const rejectedBills = billStats.find(b => b._id === "rejected") || { count: 0, totalBill: 0, totalCashback: 0 };
-
-//     const totalBills = pendingBills.count + approvedBills.count + rejectedBills.count;
-//     const totalCashbackGenerated = approvedBills.totalCashback;
-
-//     // 3. Final payload
-//    const data = {
-//   // Vendor profits
-//   totalProfit: totalCashbackGenerated,
-//   owedToAdmin: pendingProfit.totalAmount,
-//   paidToVendor: paidProfit.totalAmount,
-
-//   totalBills,
-//   pendingBills: pendingBills.count,
-//   approvedBills: approvedBills.count,
-//   rejectedBills: rejectedBills.count,
-
-//   // New: Your shop's total customer shopping analytics
-//   totalShoppingAmount: shopSummary.totalShoppingAmount,  // आपकी दुकान पर users ने कुल कितना shopping किया
-//   totalCashbackGiven: shopSummary.totalCashbackGiven,    // आपकी दुकान पर कितना cashback दिया गया
-//   totalUniqueCustomers: shopSummary.totalUsersCount,     // कितने users ने आपकी shop से shopping की
-
-//   pendingProfitDetails: pendingProfit,
-//   paidProfitDetails: paidProfit,
-// };
-
-//     return res.json(
-//       apiResponse({
-//         success: true,
-//         message: "Vendor dashboard analytics",
-//         data,
-//       })
-//     );
-//   } catch (err) {
-//     console.error("vendorDashboardAnalytics error:", err);
-//     return res.status(500).json(apiResponse({ success: false, message: "Server error" }));
-//   }
-// };
 
 
 export const getBillAnalytics = async (req, res) => {

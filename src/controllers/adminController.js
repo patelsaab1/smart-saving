@@ -3,6 +3,8 @@ import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
 import apiResponse from "../utils/apiResponse.js";
 import Shop from "../models/Shop.js";
+import User from "../models/User.js";
+import UserSubscription from "../models/UserSubscription.js";
 
 // Register Admin
 export const registerAdmin = async (req, res) => {
@@ -35,7 +37,7 @@ export const registerAdmin = async (req, res) => {
 export const loginAdmin = async (req, res) => {
   try {
     const { email, password } = req.body;
-    console.log("admin rohit patel ")
+    // console.log("admin rohit patel ")
     const admin = await Admin.findOne({ email }).select("+password");
     if (!admin) {
       return res.status(404).json(apiResponse({ success: false, message: "Admin not found" }));
@@ -64,6 +66,105 @@ export const loginAdmin = async (req, res) => {
     return res.status(500).json(apiResponse({ success: false, message: "Server error" }));
   }
 };
+
+export const getUsers = async (req, res) => {
+  try {
+    const users = await User.find().select("+password +otp +otpExpiry");
+    return res.json(
+      apiResponse({
+        success: true,
+        message: 'Profile fetched',
+        data: users
+      }));
+  } catch (err) {
+    console.error('❌ Get users Error:', err);
+    return res
+      .status(500)
+      .json(apiResponse({ success: false, message: 'Server error' }));
+  }
+};
+// Toggle User Active / Block
+export const toggleUserStatus = async (req, res) => {
+  try {
+    const { status } = req.body; // "active" or "inactive"
+
+    if (!["active", "inactive"].includes(status)) {
+      return res.status(400).json(apiResponse({
+        success: false,
+        message: "Invalid status value. Use 'active' or 'inactive'."
+      }));
+    }
+
+    const user = await User.findById(req.params.id);
+    if (!user) {
+      return res.status(404).json(apiResponse({
+        success: false,
+        message: "User not found"
+      }));
+    }
+
+    user.isActive = status === "active";
+    await user.save();
+
+    return res.json(apiResponse({
+      success: true,
+      message: `User ${status === "active" ? "unblocked" : "blocked"} successfully`,
+      data: user
+    }));
+  } catch (err) {
+    console.error("❌ Toggle User Error:", err);
+    return res.status(500).json(apiResponse({
+      success: false,
+      message: "Server error"
+    }));
+  }
+};
+
+// Toggle Subscription active / inactive
+export const toggleSubscriptionStatus = async (req, res) => {
+  try {
+    const { status } = req.body; // "active" or "inactive"
+
+    if (!["active", "inactive"].includes(status)) {
+      return res.status(400).json(apiResponse({
+        success: false,
+        message: "Invalid status value. Use 'active' or 'inactive'."
+      }));
+    }
+
+    const sub = await UserSubscription.findById(req.params.id);
+
+    if (!sub) {
+      return res.status(404).json(apiResponse({
+        success: false,
+        message: "Subscription not found"
+      }));
+    }
+
+    sub.status = status;
+
+    if (status === "active") {
+      sub.activatedAt = new Date();
+    }
+
+    await sub.save();
+
+    return res.json(apiResponse({
+      success: true,
+      message: `Subscription ${status === "active" ? "activated" : "deactivated"} successfully`,
+      data: sub
+    }));
+  } catch (err) {
+    console.error("❌ Toggle Subscription Error:", err);
+    return res.status(500).json(apiResponse({
+      success: false,
+      message: "Server error"
+    }));
+  }
+};
+
+
+
 export const approveRateList = async (req, res) => {
   try {
     const { shopId } = req.params;

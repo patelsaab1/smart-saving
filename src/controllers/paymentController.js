@@ -66,7 +66,7 @@ export const verifyOnlinePayment = async (req, res) => {
     } = req.body;
 
     const payment = await Payment.findById(paymentId).populate("user");
-    console.log("Verifying Payment:", payment);
+    // console.log("Verifying Payment:", payment);
     if (!payment)
       return res
         .status(404)
@@ -118,15 +118,15 @@ export const verifyOnlinePayment = async (req, res) => {
 
     console.log("User Subscription Created:", resuser, user._id);
     // ✅ Credit Cashback (ONLY ONCE)
-    if (plan.cashback && plan.cashback > 0) {
-      await updateWallet({
-        userId: user._id,
-        amount: plan.cashback,
-        action: "activation_cashback",
-        referenceId: payment._id.toString(),
-        description: "Activation cashback credited",
-      });
-    }
+    // if (plan.cashback && plan.cashback > 0) {
+    //   await updateWallet({
+    //     userId: user._id,
+    //     amount: plan.cashback,
+    //     action: "activation_cashback",
+    //     referenceId: payment._id.toString(),
+    //     description: "Activation cashback credited",
+    //   });
+    // }
 
     // ✅ Referral Bonus Only for Plan A
     await handleReferralBonus(user._id);
@@ -152,11 +152,10 @@ export const verifyOnlinePayment = async (req, res) => {
 export const requestCashActivation = async (req, res) => {
   try {
     const { planId } = req.body;
-    console.log("Purchase Plan Request by User:", req.user.id, "for Plan ID:", planId);
+    // console.log("Purchase Plan Request by User:", req.user.id, "for Plan ID:", planId);
     const plan = await Subscription.findById(planId);
     if (!plan || !plan.isActive) return res.status(400).json(apiResponse({ success: false, message: "Plan not found or inactive" }));
 
-    console.log("Selected Plan:", plan);
 
     const amount = plan.code === "A" ? 2400 : 999;
     const user = await User.findById(req.user.id);
@@ -200,6 +199,7 @@ export const PendingCashRequests = async (req, res) => {
     return res.status(500).json(apiResponse({ success: false, message: "Failed to fetch pending requests" }));
   }
 };
+
 export const approveCashActivation = async (req, res) => {
   try {
     const { userId, paymentId } = req.params;
@@ -209,58 +209,111 @@ export const approveCashActivation = async (req, res) => {
     if (!payment)
       return res.status(404).json(apiResponse({ success: false, message: "Payment not found" }));
 
+    const planCode = payment.planType; // "A" or "B"
+    const user = await User.findById(userId);
+    if (!user)
+      return res.status(404).json(apiResponse({ success: false, message: "User not found" }));
+
+
+    // Get user active subscription
+    const activeSub = await UserSubscription.findOne({
+      user: user._id,
+      status: "active",
+    }).sort({ createdAt: -1 });
+
+
+    // Ranking for upgrade system
+    const planRank = { B: 1, A: 2 };  
+    // B = small (999), A = big (2400)
+
+
+    if (activeSub) {
+      const currentPlan = activeSub.planCode;
+
+      // SAME PLAN ❌ NOT ALLOWED
+      if (currentPlan === planCode) {
+        return res.status(400).json(apiResponse({
+          success: false,
+          message: `User already has plan ${planCode}. Cannot buy same plan again.`,
+        }));
+      }
+
+      // ❌ DOWNGRADE NOT ALLOWED (like A → B)
+      if (planRank[planCode] < planRank[currentPlan]) {
+        return res.status(400).json(apiResponse({
+          success: false,
+          message: `User already has higher plan (${currentPlan}). Downgrade to ${planCode} not allowed.`,
+        }));
+      }
+
+      // ✔ UPGRADE (B → A)
+      if (planRank[planCode] > planRank[currentPlan]) {
+        activeSub.status = "expired";
+        activeSub.expiresAt = new Date();
+        await activeSub.save();
+      }
+    }
+
+
+    // APPROVE PAYMENT
     payment.status = "success";
     payment.approvedBy = adminId;
     payment.approvedAt = new Date();
     await payment.save();
 
-    const user = await User.findById(userId);
+
+    // USER UPDATE
     user.isActive = true;
-    user.planType = payment.planType;
+    user.planType = planCode;
     user.activatedAt = new Date();
+
     if (!user.referralCode) {
       user.referralCode = generateReferralCode();
     }
     await user.save();
 
-    const cashbackAmount = payment.planType === "A" ? 500 : 250;
 
-    // ✅ Subscription Handling
-    const plan = await Subscription.findOne({ code: payment.planType });
+    // FIND SUBSCRIPTION PLAN
+    const plan = await Subscription.findOne({ code: planCode });
 
-    const existingSub = await UserSubscription.findOne({ user: user._id })
-      .sort({ createdAt: -1 });
-
-    if (existingSub && existingSub.status === "active") {
-      // already active → do nothing
-    } else if (existingSub && existingSub.status === "pending") {
-      existingSub.status = "active";
-      existingSub.activatedAt = new Date();
-      await existingSub.save();
-    } else {
-      await UserSubscription.create({
-        user: user._id,
-        subscription: plan._id,
-        payment: payment._id,
-        status: "active",
-        activatedAt: new Date(),
-        planCode: payment.planType,
-      });
-    }
-    console.log("User Subscription Result:", res);
-    await updateWallet({
-      userId: user._id,
-      amount: cashbackAmount,
-      action: "activation_cashback",
-      referenceId: payment._id.toString(),
-      description: "Activation cashback credited",
+    // CREATE NEW ACTIVE SUBSCRIPTION
+    await UserSubscription.create({
+      user: user._id,
+      subscription: plan._id,
+      payment: payment._id,
+      status: "active",
+      activatedAt: new Date(),
+      planCode,
     });
 
+
+    // WALLET CASHBACK
+    // const cashbackAmount = planCode === "A" ? 500 : 250;
+
+    // await updateWallet({
+    //   userId: user._id,
+    //   amount: cashbackAmount,
+    //   action: "activation_cashback",
+    //   referenceId: payment._id.toString(),
+    //   description: "Activation cashback credited",
+    // });
+
+
+    // REFERRAL BONUS
     await handleReferralBonus(user._id);
 
-    return res.json(apiResponse({ message: "Cash activation approved & user activated" ,data:user}));
+
+    return res.json(apiResponse({
+      message: "Cash activation approved successfully",
+      data: user,
+    }));
+
   } catch (err) {
     console.error(err);
-    res.status(500).json(apiResponse({ success: false, message: "Admin approval failed" }));
+    return res.status(500).json(apiResponse({
+      success: false,
+      message: "Admin approval failed",
+    }));
   }
 };
+

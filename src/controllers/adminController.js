@@ -5,7 +5,8 @@ import apiResponse from "../utils/apiResponse.js";
 import Shop from "../models/Shop.js";
 import User from "../models/User.js";
 import UserSubscription from "../models/UserSubscription.js";
-
+import ShoppingBill from "../models/ShoppingBill.js";
+import VendorProfit from "../models/VendorProfit.js";
 // Register Admin
 export const registerAdmin = async (req, res) => {
   try {
@@ -236,6 +237,71 @@ export const getAllShops = async (req, res) => {
   }
 };
 
+
+export const getShopFullDetails = async (req, res) => {
+  try {
+    const { shopId } = req.params;
+
+    // 🔹 Find Shop
+    const shop = await Shop.findById(shopId)
+      .populate("owner", "name email phoneNumber role");
+
+    if (!shop) {
+      return res.status(404).json(apiResponse({
+        success: false,
+        message: "Shop not found"
+      }));
+    }
+
+    // 🔹 Find All Bills for this shop
+    const bills = await ShoppingBill.find({ shop: shopId })
+      .populate("user", "name email phoneNumber")
+      .sort({ createdAt: -1 });
+
+    // 🔹 Vendor Profit Records
+    const vendorProfits = await VendorProfit.find({ vendor: shop.owner._id })
+      .populate("bill", "billAmount createdAt status");
+
+    // 🔹 Calculate Summary
+    const summary = {
+      totalBills: bills.length,
+      pendingBills: bills.filter(b => b.status === "pending").length,
+      approvedBills: bills.filter(b => b.status === "approved").length,
+      rejectedBills: bills.filter(b => b.status === "rejected").length,
+
+      totalBillAmount: bills.reduce((sum, b) => sum + b.billAmount, 0),
+      totalCashbackGiven: bills.reduce((sum, b) => sum + (b.cashbackAmount || 0), 0),
+
+      vendorPendingAmount: vendorProfits
+        .filter(v => v.status === "pending")
+        .reduce((sum, v) => sum + v.amount, 0),
+
+      vendorPaidAmount: vendorProfits
+        .filter(v => v.status === "paid")
+        .reduce((sum, v) => sum + v.amount, 0),
+    };
+
+    return res.json(apiResponse({
+      success: true,
+      message: "Shop full details fetched",
+      data: {
+        shop,
+        owner: shop.owner,
+        summary,
+        bills,
+        vendorProfits
+      }
+    }));
+
+  } catch (err) {
+    console.error("Shop Details Error:", err);
+
+    return res.status(500).json(apiResponse({
+      success: false,
+      message: "Server error"
+    }));
+  }
+};
 // ✅ Approve a shop
 export const approveShop = async (req, res) => {
   try {

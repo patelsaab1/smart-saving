@@ -8,7 +8,7 @@ import {
   updateShop,
   deleteShop,
 } from "../controllers/vendorController.js";
-import { authMiddleware } from "../middlewares/authMiddleware.js";
+import { adminMiddleware, authMiddleware } from "../middlewares/authMiddleware.js";
 import { uploadRateListFiles, uploadShopDocs } from "../services/cloudinary.js";
 const router = express.Router();
 

@@ -76,9 +76,9 @@ export const register = async (req, res) => {
 
 export const registerVendor = async (req, res) => {
   try {
-    const { name, email, phone, password, referredBy, shopName, category, subcategory, address, gstNumber } = req.body;
+    const { name, email, phone, password, referredBy, shopName, address, gstNumber } = req.body;
 
-    if (!name || !email || !phone || !password || !shopName || !category || !address) {
+    if (!name || !email || !phone || !password || !shopName || !address) {
       return res.status(400).json({ success: false, message: "Missing required fields" });
     }
 
@@ -115,8 +115,6 @@ export const registerVendor = async (req, res) => {
     await Vendor.create({
       user: user._id,
       shopName,
-      shopCategory: category,   // ✅ map correctly
-      shopSubCategory: subcategory, // ✅ extra optional field
       shopAddress: `${address.street}, ${address.city}, ${address.state}, ${address.country} - ${address.zip}`, // ✅ make proper full string
       gstNumber
     });
@@ -127,7 +125,7 @@ export const registerVendor = async (req, res) => {
       data: {
         userId: user._id,
         email: user.email,
-        otp   // remove in production
+        otp   
       }
     });
 

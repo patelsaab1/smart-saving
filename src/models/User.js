@@ -67,8 +67,8 @@ userSchema.pre("save", function (next) {
 });
 
 // ✅ keep only meaningful indexes
-userSchema.index({ email: 1 });
-userSchema.index({ phone: 1 });
-userSchema.index({ referralCode: 1 }, { unique: true, sparse: true });
+// userSchema.index({ email: 1 });
+// userSchema.index({ phone: 1 });
+// userSchema.index({ referralCode: 1 }, { unique: true, sparse: true });
 
 export default mongoose.model("User", userSchema);

@@ -5,6 +5,7 @@ import morgan from "morgan";
 import helmet from "helmet";
 import compression from "compression";
 import connectDB from "./src/config/db.js";
+import bodyParser from "body-parser";
 
 // Routes Imports
 import authRoutes from "./src/routes/authRoutes.js";
@@ -22,8 +23,25 @@ import withdrawRoutes from "./src/routes/withdrawRoutes.js";
 dotenv.config();
 const app = express();
 
+/* ----------------------------- IMPORTANT FIX ----------------------------- */
+// Razorpay Webhook MUST receive RAW BODY
+app.use(
+  "/api/payments/razorpay/webhook",
+  bodyParser.raw({ type: "application/json" })
+);
+/* ------------------------------------------------------------------------ */
+
+// Now load express.json()
 app.use(express.json({ limit: "100mb" }));
-app.use(cors({ origin: process.env.NODE_ENV === "production" ? "https://smartsaving.in" : "*" }));
+// Other middlewares
+app.use(
+  cors({
+    origin:
+      process.env.NODE_ENV === "production"
+        ? "https://smartsaving.in"
+        : "*",
+  })
+);
 app.use(helmet());
 app.use(compression());
 if (process.env.NODE_ENV !== "production") {
@@ -63,5 +81,5 @@ app.use(errorHandler);
 
 const PORT = process.env.PORT || 1116;
 app.listen(PORT, () => {
-  console.log(`\n⚡ Smart Saving API is running on Shree SeetRam 🙏: http://localhost:${PORT}\n`);
+  console.log(`⚡ Smart Saving API running: http://localhost:${PORT}`);
 });

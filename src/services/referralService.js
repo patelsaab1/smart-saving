@@ -157,7 +157,7 @@ export const handleReferralBonus = async (newUserId) => {
 
     const planARefCount = planARefs.filter(r => r.referredUser?.planType === "A").length;
 
-    console.log("Plan A referral count:", planARefCount);
+    // console.log("Plan A referral count:", planARefCount);
 
     // PAIR FORMULA
     let totalPairs = 0;
@@ -165,8 +165,8 @@ export const handleReferralBonus = async (newUserId) => {
       totalPairs = 1 + Math.floor((planARefCount - 3) / 6);
     }
 
-    console.log("Calculated pairs:", totalPairs);
-    console.log("Existing pairs:", referrer.pairCount);
+    // console.log("Calculated pairs:", totalPairs);
+    // console.log("Existing pairs:", referrer.pairCount);
 
     // --------------------------------------------------------
     // AWARD NEWLY UNLOCKED PAIRS

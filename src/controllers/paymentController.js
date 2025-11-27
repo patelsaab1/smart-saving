@@ -149,30 +149,35 @@ export const verifyOnlinePayment = async (req, res) => {
   }
 };
 
-
 export const razorpayWebhook = async (req, res) => {
-  const crypto = await import("crypto");
-  const secret = process.env.RAZORPAY_WEBHOOK_SECRET;
+  try {
+    const crypto = await import("crypto");
+    const secret = process.env.RAZORPAY_KEY_SECRET;
+    console.log(secret, "--------------------------")
+    const receivedSignature = req.headers["x-razorpay-signature"];
 
-  const signature = crypto
-    .createHmac("sha256", secret)
-    .update(JSON.stringify(req.body))
-    .digest("hex");
+    const expectedSignature = crypto
+      .createHmac("sha256", secret)
+      .update(req.body) // RAW BUFFER
+      .digest("hex");
 
-  if (signature !== req.headers["x-razorpay-signature"]) {
-    return res.status(400).json({ status: "Invalid signature" });
+    if (receivedSignature !== expectedSignature) {
+      return res.status(400).json({ status: "Invalid signature" });
+    }
+
+    const data = JSON.parse(req.body.toString());
+    const event = data.event;
+
+    if (event === "payment.captured") {
+      console.log("Payment Captured:", data.payload.payment.entity);
+    }
+
+    return res.json({ status: "ok" });
+
+  } catch (err) {
+    console.log("Webhook Error:", err);
+    res.status(500).json({ status: "failed" });
   }
-
-  const event = req.body.event;
-
-  if (event === "payment.captured") {
-    const payment = req.body.payload.payment.entity;
-    console.log("Payment Captured:", payment);
-
-    // Update subscription here
-  }
-
-  res.json({ status: "ok" });
 };
 
 
@@ -230,69 +235,178 @@ export const PendingCashRequests = async (req, res) => {
   }
 };
 
+// export const approveCashActivation = async (req, res) => {
+//   try {
+//     const { userId, paymentId } = req.params;
+//     const adminId = req.user.id;
+
+//     const payment = await Payment.findById(paymentId).populate("user");
+//     if (!payment)
+//       return res.status(404).json(apiResponse({ success: false, message: "Payment not found" }));
+
+//     const planCode = payment.planType; 
+//     const user = await User.findById(userId);
+//     if (!user)
+//       return res.status(404).json(apiResponse({ success: false, message: "User not found" }));
+
+
+//     // Get user active subscription
+//     const activeSub = await UserSubscription.findOne({
+//       user: user._id,
+//       status: "active",
+//     }).sort({ createdAt: -1 });
+
+
+//     // Ranking for upgrade system
+//     const planRank = { B: 1, A: 2 };
+//     // B = small (999), A = big (2400)
+
+
+//     if (activeSub) {
+//       const currentPlan = activeSub.planCode;
+
+//       // SAME PLAN ❌ NOT ALLOWED
+//       if (currentPlan === planCode) {
+//         return res.status(400).json(apiResponse({
+//           success: false,
+//           message: `User already has plan ${planCode}. Cannot buy same plan again.`,
+//         }));
+//       }
+
+//       // ❌ DOWNGRADE NOT ALLOWED (like A → B)
+//       if (planRank[planCode] < planRank[currentPlan]) {
+//         return res.status(400).json(apiResponse({
+//           success: false,
+//           message: `User already has higher plan (${currentPlan}). Downgrade to ${planCode} not allowed.`,
+//         }));
+//       }
+
+//       // ✔ UPGRADE (B → A)
+//       if (planRank[planCode] > planRank[currentPlan]) {
+//         activeSub.status = "expired";
+//         activeSub.expiresAt = new Date();
+//         await activeSub.save();
+//       }
+//     }
+
+
+//     // APPROVE PAYMENT
+//     payment.status = "success";
+//     payment.approvedBy = adminId;
+//     payment.approvedAt = new Date();
+//     await payment.save();
+
+
+//     // USER UPDATE
+//     user.isActive = true;
+//     user.planType = planCode;
+//     user.activatedAt = new Date();
+
+//     if (!user.referralCode) {
+//       user.referralCode = generateReferralCode();
+//     }
+//     await user.save();
+
+
+//     // FIND SUBSCRIPTION PLAN
+//     const plan = await Subscription.findOne({ code: planCode });
+
+//     // CREATE NEW ACTIVE SUBSCRIPTION
+//     await UserSubscription.create({
+//       user: user._id,
+//       subscription: plan._id,
+//       payment: payment._id,
+//       status: "active",
+//       activatedAt: new Date(),
+//       planCode,
+//     });
+
+
+//     // REFERRAL BONUS
+//     await handleReferralBonus(user._id);
+
+
+//     return res.json(apiResponse({
+//       message: "Cash activation approved successfully",
+//       data: user,
+//     }));
+
+//   } catch (err) {
+//     console.error(err);
+//     return res.status(500).json(apiResponse({
+//       success: false,
+//       message: "Admin approval failed",
+//     }));
+//   }
+// };
+
 export const approveCashActivation = async (req, res) => {
   try {
     const { userId, paymentId } = req.params;
     const adminId = req.user.id;
 
     const payment = await Payment.findById(paymentId).populate("user");
-    if (!payment)
-      return res.status(404).json(apiResponse({ success: false, message: "Payment not found" }));
+    if (!payment) {
+      return res
+        .status(404)
+        .json(apiResponse({ success: false, message: "Payment not found" }));
+    }
 
-    const planCode = payment.planType; // "A" or "B"
+    const planCode = payment.planType;
+
     const user = await User.findById(userId);
-    if (!user)
-      return res.status(404).json(apiResponse({ success: false, message: "User not found" }));
+    if (!user) {
+      return res
+        .status(404)
+        .json(apiResponse({ success: false, message: "User not found" }));
+    }
 
-
-    // Get user active subscription
+    // Find active subscription
     const activeSub = await UserSubscription.findOne({
       user: user._id,
       status: "active",
     }).sort({ createdAt: -1 });
 
-
-    // Ranking for upgrade system
-    const planRank = { B: 1, A: 2 };
-    // B = small (999), A = big (2400)
-
+    const planRank = { B: 1, A: 2 }; // B=999, A=2400
 
     if (activeSub) {
       const currentPlan = activeSub.planCode;
 
-      // SAME PLAN ❌ NOT ALLOWED
+      // Same plan check
       if (currentPlan === planCode) {
-        return res.status(400).json(apiResponse({
-          success: false,
-          message: `User already has plan ${planCode}. Cannot buy same plan again.`,
-        }));
+        return res.status(400).json(
+          apiResponse({
+            success: false,
+            message: `User already has plan ${planCode}. Cannot buy same plan again.`,
+          })
+        );
       }
 
-      // ❌ DOWNGRADE NOT ALLOWED (like A → B)
+      // Down grade not allowed
       if (planRank[planCode] < planRank[currentPlan]) {
-        return res.status(400).json(apiResponse({
-          success: false,
-          message: `User already has higher plan (${currentPlan}). Downgrade to ${planCode} not allowed.`,
-        }));
+        return res.status(400).json(
+          apiResponse({
+            success: false,
+            message: `User already has higher plan (${currentPlan}). Downgrade to ${planCode} not allowed.`,
+          })
+        );
       }
 
-      // ✔ UPGRADE (B → A)
+      // Upgrade (B → A)
       if (planRank[planCode] > planRank[currentPlan]) {
-        activeSub.status = "expired";
+        activeSub.status = "expired"; // must exist in model enum
         activeSub.expiresAt = new Date();
         await activeSub.save();
       }
     }
 
-
-    // APPROVE PAYMENT
+    // Approve payment
     payment.status = "success";
     payment.approvedBy = adminId;
     payment.approvedAt = new Date();
     await payment.save();
 
-
-    // USER UPDATE
+    // Update user
     user.isActive = true;
     user.planType = planCode;
     user.activatedAt = new Date();
@@ -302,11 +416,9 @@ export const approveCashActivation = async (req, res) => {
     }
     await user.save();
 
-
-    // FIND SUBSCRIPTION PLAN
+    // Get subscription plan
     const plan = await Subscription.findOne({ code: planCode });
 
-    // CREATE NEW ACTIVE SUBSCRIPTION
     await UserSubscription.create({
       user: user._id,
       subscription: plan._id,
@@ -316,34 +428,23 @@ export const approveCashActivation = async (req, res) => {
       planCode,
     });
 
-
-    // WALLET CASHBACK
-    // const cashbackAmount = planCode === "A" ? 500 : 250;
-
-    // await updateWallet({
-    //   userId: user._id,
-    //   amount: cashbackAmount,
-    //   action: "activation_cashback",
-    //   referenceId: payment._id.toString(),
-    //   description: "Activation cashback credited",
-    // });
-
-
-    // REFERRAL BONUS
+    // Referral bonus
     await handleReferralBonus(user._id);
 
-
-    return res.json(apiResponse({
-      message: "Cash activation approved successfully",
-      data: user,
-    }));
-
+    return res.json(
+      apiResponse({
+        success: true,
+        message: "Cash activation approved successfully",
+        data: user,
+      })
+    );
   } catch (err) {
-    console.error(err);
-    return res.status(500).json(apiResponse({
-      success: false,
-      message: "Admin approval failed",
-    }));
+    console.error("APPROVE ERROR:", err);
+    return res.status(500).json(
+      apiResponse({
+        success: false,
+        message: "Admin approval failed",
+      })
+    );
   }
 };
-

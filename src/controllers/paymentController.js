@@ -28,12 +28,15 @@ export const initiateOnlinePayment = async (req, res) => {
 
     const user = await User.findById(req.user.id);
     if (!user) return res.status(404).json(apiResponse({ success: false, message: "User not found" }));
-    
+
+
     const order = await razorpay.orders.create({
       amount: plan.price * 100,
       currency: "INR",
       receipt: `order_${Date.now()}_${plan?.code}`,
+      payment_capture: 1,   // <-- yahi AUTO CAPTURE enable karta hai
     });
+
 
     const payment = await Payment.create({
       user: user._id,
@@ -116,7 +119,7 @@ export const verifyOnlinePayment = async (req, res) => {
       activatedAt: new Date(),
     });
 
-    console.log("User Subscription Created:", resuser, user._id);
+    // console.log("User Subscription Created:", resuser, user._id);
     // ✅ Credit Cashback (ONLY ONCE)
     // if (plan.cashback && plan.cashback > 0) {
     //   await updateWallet({
@@ -145,6 +148,33 @@ export const verifyOnlinePayment = async (req, res) => {
       .json(apiResponse({ success: false, message: "Payment verification failed" }));
   }
 };
+
+
+export const razorpayWebhook = async (req, res) => {
+  const crypto = await import("crypto");
+  const secret = process.env.RAZORPAY_WEBHOOK_SECRET;
+
+  const signature = crypto
+    .createHmac("sha256", secret)
+    .update(JSON.stringify(req.body))
+    .digest("hex");
+
+  if (signature !== req.headers["x-razorpay-signature"]) {
+    return res.status(400).json({ status: "Invalid signature" });
+  }
+
+  const event = req.body.event;
+
+  if (event === "payment.captured") {
+    const payment = req.body.payload.payment.entity;
+    console.log("Payment Captured:", payment);
+
+    // Update subscription here
+  }
+
+  res.json({ status: "ok" });
+};
+
 
 
 
@@ -223,7 +253,7 @@ export const approveCashActivation = async (req, res) => {
 
 
     // Ranking for upgrade system
-    const planRank = { B: 1, A: 2 };  
+    const planRank = { B: 1, A: 2 };
     // B = small (999), A = big (2400)
 
 

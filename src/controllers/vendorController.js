@@ -57,48 +57,138 @@ export const addShop = async (req, res) => {
 // 🔹 Update Shop
 export const updateShop = async (req, res) => {
   try {
-    const shop = await Shop.findOne({ _id: req.params.shopId, owner: req.user.id });
+    const shop = await Shop.findOne({
+      _id: req.params.shopId,
+      owner: req.user.id,
+    });
+
     if (!shop)
-      return res.status(404).json(apiResponse({ success: false, message: "Shop not found" }));
+      return res
+        .status(404)
+        .json(apiResponse({ success: false, message: "Shop not found" }));
 
-    const { shopName, category, subcategory, contactNumber, address, defaultDiscountRate } = req.body;
+    const fields = [
+      "shopName",
+      "category",
+      "subcategory",
+      "contactNumber",
+      "defaultDiscountRate",
+    ];
+
+    fields.forEach((field) => {
+      if (req.body[field]) shop[field] = req.body[field];
+    });
+
+    // Address update
+    if (req.body.address) {
+      shop.address = JSON.parse(req.body.address);
+    }
+
+    // Files if passed
     const { rentAgreement, licenseDoc } = req.files || {};
-
-    if (shopName) shop.shopName = shopName;
-    if (category) shop.category = category;
-    if (subcategory) shop.subcategory = subcategory;
-    if (contactNumber) shop.contactNumber = contactNumber;
-    if (address) shop.address = JSON.parse(address || "{}");
-    if (defaultDiscountRate) shop.defaultDiscountRate = defaultDiscountRate;
 
     if (rentAgreement) shop.documents.rentAgreement = rentAgreement[0].path;
     if (licenseDoc) shop.documents.licenseDoc = licenseDoc[0].path;
 
-    shop.status = "pending"; // re-verify after update
+    shop.status = "pending"; // after update, verification required
 
     await shop.save();
-    return res.json(apiResponse({ success: true, message: "Shop updated successfully.", data: shop }));
+
+    return res.json(
+      apiResponse({
+        success: true,
+        message: "Shop updated successfully.",
+        data: shop,
+      })
+    );
   } catch (err) {
     console.error("Update Shop Error:", err);
-    return res.status(500).json(apiResponse({ success: false, message: "Server error" }));
+    return res
+      .status(500)
+      .json(apiResponse({ success: false, message: "Server error" }));
   }
 };
+
 
 // 🔹 Delete Shop
 export const deleteShop = async (req, res) => {
   try {
-    const shop = await Shop.findOneAndDelete({ _id: req.params.shopId, owner: req.user.id });
-    if (!shop)
-      return res.status(404).json(apiResponse({ success: false, message: "Shop not found" }));
+    const shop = await Shop.findOneAndDelete({
+      _id: req.params.shopId,
+      owner: req.user.id,
+    });
 
-    return res.json(apiResponse({ success: true, message: "Shop deleted successfully" }));
+    if (!shop)
+      return res
+        .status(404)
+        .json(apiResponse({ success: false, message: "Shop not found" }));
+
+    return res.json(
+      apiResponse({
+        success: true,
+        message: "Shop deleted successfully",
+      })
+    );
   } catch (err) {
     console.error("Delete Shop Error:", err);
-    return res.status(500).json(apiResponse({ success: false, message: "Server error" }));
+    return res
+      .status(500)
+      .json(apiResponse({ success: false, message: "Server error" }));
   }
 };
 
+// export const deleteShop = async (req, res) => {
+//   try {
+//     const { shopId } = req.params;
+//     const ownerId = req.user.id;
+
+//     // Check if shop exists
+//     const shop = await Shop.findOne({ _id: shopId, owner: ownerId });
+//     if (!shop) {
+//       return res.status(404).json(
+//         apiResponse({
+//           success: false,
+//           message: "Shop not found",
+//         })
+//       );
+//     }
+
+//     // 🛑 Check pending bills
+//     const pendingBills = await ShoppingBill.findOne({
+//       shop: shopId,
+//       status: "pending",
+//     });
+
+//     if (pendingBills) {
+//       return res.status(400).json(
+//         apiResponse({
+//           success: false,
+//           message: "Shop cannot be deleted because pending bills exist.",
+//         })
+//       );
+//     }
+
+//     // ✔ If no pending bills → Delete shop
+//     await Shop.deleteOne({ _id: shopId, owner: ownerId });
+
+//     return res.json(
+//       apiResponse({
+//         success: true,
+//         message: "Shop deleted successfully.",
+//       })
+//     );
+//   } catch (err) {
+//     console.error("Delete Shop Error:", err);
+//     return res.status(500).json(
+//       apiResponse({
+//         success: false,
+//         message: "Server error",
+//       })
+//     );
+//   }
+// };
 // 🔹 Upload Rate List
+
 export const uploadRateList = async (req, res) => {
   try {
     const { shopId } = req.params;
@@ -130,6 +220,41 @@ export const uploadRateList = async (req, res) => {
   }
 };
 
+// 🔹 Update Rent Agreement OR Rate List Only
+export const updateShopDocuments = async (req, res) => {
+  try {
+    const { shopId } = req.params;
+
+    const shop = await Shop.findOne({ _id: shopId, owner: req.user.id });
+    if (!shop)
+      return res.status(404).json(apiResponse({ success: false, message: "Shop not found" }));
+
+    const { rentAgreement, licenseDoc, rateListFile, rateListExcel } = req.files || {};
+
+    if (rentAgreement) shop.documents.rentAgreement = rentAgreement[0].path;
+    if (licenseDoc) shop.documents.licenseDoc = licenseDoc[0].path;
+
+    if (rateListFile) shop.rateListFile = rateListFile[0].path;
+    if (rateListExcel) shop.rateListExcel = rateListExcel[0].path;
+
+    shop.status = "pending";       // again verification
+    shop.rateListStatus = "pending"; // if rate list updated
+
+    await shop.save();
+
+    return res.json(
+      apiResponse({
+        success: true,
+        message: "Documents updated successfully.",
+        data: shop,
+      })
+    );
+  } catch (err) {
+    console.error("Update Documents Error:", err);
+    return res.status(500).json(apiResponse({ success: false, message: "Server error" }));
+  }
+};
+
 // 🔹 Get My Shops
 export const getMyShops = async (req, res) => {
   try {
@@ -152,5 +277,37 @@ export const getActiveShops = async (req, res) => {
   } catch (err) {
     console.error("Get Active Shops Error:", err);
     return res.status(500).json(apiResponse({ success: false, message: "Server error" }));
+  }
+};
+
+// 🔹 Get Single Shop (Full Details)
+export const getSingleShop = async (req, res) => {
+  try {
+    const { shopId } = req.params;
+
+    const shop = await Shop.findOne({
+      _id: shopId,
+      owner: req.user.id
+    })
+      .populate("owner", "name email phone profilepic") // populate owner details
+      .lean();
+
+    if (!shop)
+      return res
+        .status(404)
+        .json(apiResponse({ success: false, message: "Shop not found" }));
+
+    return res.json(
+      apiResponse({
+        success: true,
+        message: "Shop details",
+        data: shop,
+      })
+    );
+  } catch (err) {
+    console.error("Get Single Shop Error:", err);
+    return res
+      .status(500)
+      .json(apiResponse({ success: false, message: "Server error" }));
   }
 };

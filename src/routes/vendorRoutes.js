@@ -1,5 +1,6 @@
 // routes/vendorRoutes.js
 import express from "express";
+
 import {
   addShop,
   uploadRateList,
@@ -7,15 +8,29 @@ import {
   getActiveShops,
   updateShop,
   deleteShop,
+  updateShopDocuments,
 } from "../controllers/vendorController.js";
-import { adminMiddleware, authMiddleware } from "../middlewares/authMiddleware.js";
-import { uploadRateListFiles, uploadShopDocs } from "../services/cloudinary.js";
+
+import { authMiddleware } from "../middlewares/authMiddleware.js";
+import {
+  uploadRateListFiles,
+  uploadShopDocs,
+} from "../services/cloudinary.js";
+
 const router = express.Router();
 
-// 🔹 Get active shops (public)
+/* ----------------------------------------
+   🔹 PUBLIC ROUTES
+----------------------------------------- */
+
+// Get all active shops
 router.get("/shops", getActiveShops);
 
-// 🔹 Vendor add new shop
+/* ----------------------------------------
+   🔹 VENDOR ROUTES (AUTH REQUIRED)
+----------------------------------------- */
+
+// Add new shop
 router.post(
   "/shop",
   authMiddleware,
@@ -26,7 +41,7 @@ router.post(
   addShop
 );
 
-// 🔹 Update shop details or documents
+// Update shop
 router.put(
   "/shop/:shopId",
   authMiddleware,
@@ -37,10 +52,10 @@ router.put(
   updateShop
 );
 
-// 🔹 Delete shop
+// Delete shop (with pending bill protection)
 router.delete("/shop/:shopId", authMiddleware, deleteShop);
 
-// 🔹 Upload Rate List (Photo or Excel)
+// Upload Rate List (Image + Excel)
 router.post(
   "/shop/:shopId/rate-list",
   authMiddleware,
@@ -51,7 +66,20 @@ router.post(
   uploadRateList
 );
 
-// 🔹 Get all my shops (for vendor)
+// Update only documents (rent agreement / rate list)
+router.put(
+  "/shop/:shopId/documents",
+  authMiddleware,
+  uploadShopDocs.fields([
+    { name: "rentAgreement", maxCount: 1 },
+    { name: "licenseDoc", maxCount: 1 },
+    { name: "rateListFile", maxCount: 1 },
+    { name: "rateListExcel", maxCount: 1 },
+  ]),
+  updateShopDocuments
+);
+
+// Get all shops owned by vendor
 router.get("/my-shops", authMiddleware, getMyShops);
 
 export default router;

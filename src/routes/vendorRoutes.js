@@ -9,6 +9,7 @@ import {
   updateShop,
   deleteShop,
   updateShopDocuments,
+  getSingleShop,
 } from "../controllers/vendorController.js";
 
 import { authMiddleware } from "../middlewares/authMiddleware.js";
@@ -54,6 +55,7 @@ router.put(
 
 // Delete shop (with pending bill protection)
 router.delete("/shop/:shopId", authMiddleware, deleteShop);
+router.get("/shop/:shopId", authMiddleware, getSingleShop);
 
 // Upload Rate List (Image + Excel)
 router.post(

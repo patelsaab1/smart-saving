@@ -1,5 +1,5 @@
 import express from "express";
-import { registerAdmin, loginAdmin ,approveRateList,updateShopStatus, getAllShops, approveShop, rejectShop, getUsers, toggleUserStatus, toggleSubscriptionStatus, getShopFullDetails } from "../controllers/adminController.js";
+import { registerAdmin, loginAdmin ,approveRateList,updateShopStatus, getAllShops, approveShop, rejectShop, getUsers, toggleUserStatus, toggleSubscriptionStatus, getShopFullDetails, getAdminOverviewStats, getAdminRevenueStats, getAdminWalletStats, getAdminWithdrawalStats } from "../controllers/adminController.js";
 const router = express.Router();
 import { adminMiddleware } from "../middlewares/authMiddleware.js";
 router.post("/register", registerAdmin);
@@ -12,6 +12,11 @@ router.put("/shops/:shopId/approve", adminMiddleware, approveShop);
 router.put("/shops/:shopId/reject", adminMiddleware, rejectShop);
 router.put("/shops/:shopId/approve-rate-list", adminMiddleware, approveRateList);
 router.put("/shops/:shopId/status", adminMiddleware, updateShopStatus);
+
+router.get("/overview", getAdminOverviewStats);
+router.get("/revenue", adminMiddleware, getAdminRevenueStats);
+router.get("/wallet", adminMiddleware, getAdminWalletStats);
+router.get("/withdrawals", adminMiddleware, getAdminWithdrawalStats);
 
 router.get("/shop/:shopId/details", getShopFullDetails);
 // User toggle: active / inactive

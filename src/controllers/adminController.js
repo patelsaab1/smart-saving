@@ -7,6 +7,11 @@ import User from "../models/User.js";
 import UserSubscription from "../models/UserSubscription.js";
 import ShoppingBill from "../models/ShoppingBill.js";
 import VendorProfit from "../models/VendorProfit.js";
+import Payment from "../models/Payment.js";
+import WalletTransaction from "../models/WalletTransaction.js";
+import Withdrawal from "../models/Withdrawal.js";
+
+
 // Register Admin
 export const registerAdmin = async (req, res) => {
   try {
@@ -362,5 +367,133 @@ export const rejectShop = async (req, res) => {
     res
       .status(500)
       .json(apiResponse({ success: false, message: "Server error" }));
+  }
+};
+
+
+export const getAdminOverviewStats = async (req, res) => {
+  try {
+    const [
+      totalUsers,
+      activeUsers,
+      inactiveUsers,
+      planAUsers,
+      planBUsers,
+      vendors,
+      activeShops,
+      totalShops
+    ] = await Promise.all([
+      User.countDocuments(),
+      User.countDocuments({ isActive: true }),
+      User.countDocuments({ isActive: false }),
+      User.countDocuments({ planType: "A" }),
+      User.countDocuments({ planType: "B" }),
+      User.countDocuments({ role: "vendor" }),
+      Shop.countDocuments({ status: "active" }),
+      Shop.countDocuments()
+    ]);
+
+    return res.json(apiResponse({
+      success: true,
+      data: {
+        totalUsers,
+        activeUsers,
+        inactiveUsers,
+        planAUsers,
+        planBUsers,
+        vendors,
+        totalShops,
+        activeShops
+      }
+    }));
+  } catch (err) {
+    return res.status(500).json(apiResponse({
+      success: false,
+      message: "Server error"
+    }));
+  }
+};
+
+
+
+export const getAdminRevenueStats = async (req, res) => {
+  try {
+    const revenue = await Payment.aggregate([
+      { $match: { status: "success" } },
+      {
+        $group: {
+          _id: null,
+          totalRevenue: { $sum: "$amount" },
+          onlineRevenue: {
+            $sum: { $cond: [{ $eq: ["$mode", "online"] }, "$amount", 0] }
+          },
+          cashRevenue: {
+            $sum: { $cond: [{ $eq: ["$mode", "cash"] }, "$amount", 0] }
+          },
+        }
+      }
+    ]);
+
+    return res.json(apiResponse({
+      success: true,
+      data: revenue[0] || {
+        totalRevenue: 0,
+        onlineRevenue: 0,
+        cashRevenue: 0,
+      }
+    }));
+  } catch (err) {
+    return res.status(500).json(apiResponse({ success: false, message: "Server error" }));
+  }
+};
+
+
+export const getAdminWalletStats = async (req, res) => {
+  try {
+    const walletStats = await WalletTransaction.aggregate([
+      {
+        $group: {
+          _id: "$action",
+          totalAmount: { $sum: "$amount" },
+          count: { $sum: 1 },
+        }
+      }
+    ]);
+
+    const totalCredited = await WalletTransaction.aggregate([
+      { $match: { type: "CREDIT" } },
+      { $group: { _id: null, amount: { $sum: "$amount" } } }
+    ]);
+
+    return res.json(apiResponse({
+      success: true,
+      data: {
+        breakdown: walletStats,
+        totalCredited: totalCredited[0]?.amount || 0,
+      }
+    }));
+  } catch (err) {
+    return res.status(500).json(apiResponse({ success: false, message: "Server error" }));
+  }
+};
+
+export const getAdminWithdrawalStats = async (req, res) => {
+  try {
+    const stats = await Withdrawal.aggregate([
+      {
+        $group: {
+          _id: "$status",
+          totalAmount: { $sum: "$amount" },
+          count: { $sum: 1 },
+        }
+      }
+    ]);
+
+    return res.json(apiResponse({
+      success: true,
+      data: stats,
+    }));
+  } catch (err) {
+    return res.status(500).json(apiResponse({ success: false, message: "Server error" }));
   }
 };

@@ -102,7 +102,7 @@ export const approveBill = async (req, res) => {
     const billAmount = bill.billAmount;
     const maxProfit = billAmount * 0.40;
     const vendorId = bill.shop.owner;
-    const vendor = await User.findById(vendorId); // or Admin.findById(vendorId)
+    const vendor = await User.findById(vendorId); 
 
 
     if (ProfitAmount > maxProfit) {
@@ -201,7 +201,7 @@ export const approveBill = async (req, res) => {
         });
       }
 
-      adminShare -= actualFirstCashback;
+      // adminShare -= actualFirstCashback;
 
       user.firstShoppingCashbackClaimed = true;
       bill.firstCashbackProcessed = true;

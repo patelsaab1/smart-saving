@@ -89,6 +89,58 @@ export const getUsers = async (req, res) => {
       .json(apiResponse({ success: false, message: 'Server error' }));
   }
 };
+
+export const getUserDetailsById = async (req, res) => {
+  try {
+    const { userId } = req.params;
+
+    // 1️⃣ User fetch
+    const user = await User.findById(userId).lean();
+
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: "User not found",
+      });
+    }
+
+    let shops = [];
+    let shopCount = 0;
+
+    // 2️⃣ Agar vendor hai toh shops lao
+    if (user.role === "vendor") {
+      shops = await Shop.find({ owner: user._id })
+        .select(
+          "shopName category subcategory status address contactNumber defaultDiscountRate createdAt"
+        )
+        .lean();
+
+      shopCount = shops.length;
+    }
+
+    return res.status(200).json({
+      success: true,
+      message: "User details fetched successfully",
+      data: {
+        user,
+        vendorInfo:
+          user.role === "vendor"
+            ? {
+                shopCount,
+                shops,
+              }
+            : null,
+      },
+    });
+  } catch (error) {
+    console.error("getUserDetailsById error:", error);
+    res.status(500).json({
+      success: false,
+      message: "Server error",
+    });
+  }
+};
+
 // Toggle User Active / Block
 export const toggleUserStatus = async (req, res) => {
   try {

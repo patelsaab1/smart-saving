@@ -21,14 +21,35 @@ const createStorage = (folder) =>
     },
   });
 
+const createImageStorage = (folder) =>
+  new CloudinaryStorage({
+    cloudinary,
+    params: {
+      folder: `smart-saving/${folder}`,
+      resource_type: "image",
+      allowed_formats: ["jpg", "jpeg", "png", "webp", "gif"],
+      transformation: [{ width: 1000, height: 1000, crop: "limit" }],
+    },
+  });
+const createRawStorage = (folder) =>
+  new CloudinaryStorage({
+    cloudinary,
+    params: {
+      folder: `smart-saving/${folder}`,
+      resource_type: "raw",
+      allowed_formats: ["pdf", "doc", "docx", "xls", "xlsx"],
+    },
+  });
+
 // 🔹 Different uploaders
-export const uploadProfile = multer({ storage: createStorage("profiles") });
-export const uploadBillimage = multer({ storage: createStorage("bills") });
-export const uploadVendorAll = multer({ storage: createStorage("vendors") });
-export const uploadVendorKyc = multer({ storage: createStorage("vendors/kyc") });
-export const uploadShopDocs = multer({ storage: createStorage("shops/docs") });
-export const uploadRateListFiles = multer({ storage: createStorage("shops/rate-lists") });
-export const uploadOther = multer({ storage: createStorage("others") });
+export const uploadProfile = multer({ storage: createImageStorage("profiles") });
+export const uploadBillimage = multer({ storage: createImageStorage("bills") });
+export const uploadVendorAll = multer({ storage: createImageStorage("vendors") });
+export const uploadVendorKyc = multer({ storage: createImageStorage("vendors/kyc") });
+export const uploadShopDocs = multer({ storage: createRawStorage("shops/docs") });
+export const uploadRateListFiles = multer({ storage: createRawStorage("shops/rate-lists") });
+export const uploadOther = multer({ storage: createRawStorage("others") });
+
 
 
 export default cloudinary;

@@ -231,7 +231,7 @@ export const updateShopDocuments = async (req, res) => {
 
     const { rentAgreement, licenseDoc, rateListFile, rateListExcel } = req.files || {};
 
-    if (rentAgreement) shop.documents.rentAgreement = rentAgreement[0].path;
+    if (rentAgreement) shop.documents.rentAgreement = rentAgreement[0].path || rentAgreement[0].secure_url;
     if (licenseDoc) shop.documents.licenseDoc = licenseDoc[0].path;
 
     if (rateListFile) shop.rateListFile = rateListFile[0].path;

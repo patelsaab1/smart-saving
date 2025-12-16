@@ -36,6 +36,16 @@ const createRawStorage = (folder) =>
     }),
   });
 
+const createPdfStorage = (folder) =>
+  new CloudinaryStorage({
+    cloudinary,
+    params: {
+      folder: `smart-saving/${folder}`,
+      resource_type: "image", // ✅ IMPORTANT
+      allowed_formats: ["pdf"],
+    },
+  });
+
 /* ================= MULTER EXPORTS ================= */
 export const uploadProfile = multer({
   storage: createImageStorage("profiles"),
@@ -54,7 +64,7 @@ export const uploadVendorKyc = multer({
 });
 
 export const uploadShopDocs = multer({
-  storage: createRawStorage("shops/docs"),
+  storage: createPdfStorage("shops/docs"),
 });
 
 export const uploadRateListFiles = multer({

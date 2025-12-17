@@ -19,9 +19,12 @@ import adminRoutes from "./src/routes/adminRoutes.js";
 import subscriptionRoutes from "./src/routes/subscriptionRoutes.js";
 import contactRoutes from "./src/routes/contactRoutes.js";
 import withdrawRoutes from "./src/routes/withdrawRoutes.js";
+import path from "path";
 
 dotenv.config();
 const app = express();
+
+app.use("/uploads", express.static(path.join(process.cwd(), "uploads")));
 
 /* ----------------------------- IMPORTANT FIX ----------------------------- */
 // Razorpay Webhook MUST receive RAW BODY

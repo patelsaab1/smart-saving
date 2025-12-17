@@ -221,39 +221,79 @@ export const uploadRateList = async (req, res) => {
 };
 
 // 🔹 Update Rent Agreement OR Rate List Only
+// export const updateShopDocuments = async (req, res) => {
+//   try {
+//     const { shopId } = req.params;
+
+//     const shop = await Shop.findOne({ _id: shopId, owner: req.user.id });
+//     if (!shop)
+//       return res.status(404).json(apiResponse({ success: false, message: "Shop not found" }));
+
+//     const { rentAgreement, licenseDoc, rateListFile, rateListExcel } = req.files || {};
+
+//     if (rentAgreement) shop.documents.rentAgreement = rentAgreement[0].path || rentAgreement[0].secure_url;
+//     if (licenseDoc) shop.documents.licenseDoc = licenseDoc[0].path;
+
+//     if (rateListFile) shop.rateListFile = rateListFile[0].path;
+//     if (rateListExcel) shop.rateListExcel = rateListExcel[0].path;
+
+//     shop.status = "pending";       // again verification
+//     shop.rateListStatus = "pending"; // if rate list updated
+
+//     await shop.save();
+
+//     return res.json(
+//       apiResponse({
+//         success: true,
+//         message: "Documents updated successfully.",
+//         data: shop,
+//       })
+//     );
+//   } catch (err) {
+//     console.error("Update Documents Error:", err);
+//     return res.status(500).json(apiResponse({ success: false, message: "Server error" }));
+//   }
+// };
 export const updateShopDocuments = async (req, res) => {
   try {
     const { shopId } = req.params;
 
-    const shop = await Shop.findOne({ _id: shopId, owner: req.user.id });
+    const shop = await Shop.findOne({
+      _id: shopId,
+      owner: req.user.id,
+    });
+
     if (!shop)
-      return res.status(404).json(apiResponse({ success: false, message: "Shop not found" }));
+      return res
+        .status(404)
+        .json(apiResponse({ success: false, message: "Shop not found" }));
 
-    const { rentAgreement, licenseDoc, rateListFile, rateListExcel } = req.files || {};
+    const { rentAgreement, licenseDoc } = req.files || {};
 
-    if (rentAgreement) shop.documents.rentAgreement = rentAgreement[0].path || rentAgreement[0].secure_url;
-    if (licenseDoc) shop.documents.licenseDoc = licenseDoc[0].path;
+    if (rentAgreement) {
+      shop.documents.rentAgreement = `/uploads/shops/documents/${rentAgreement[0].filename}`;
+    }
 
-    if (rateListFile) shop.rateListFile = rateListFile[0].path;
-    if (rateListExcel) shop.rateListExcel = rateListExcel[0].path;
+    if (licenseDoc) {
+      shop.documents.licenseDoc = `/uploads/shops/documents/${licenseDoc[0].filename}`;
+    }
 
-    shop.status = "pending";       // again verification
-    shop.rateListStatus = "pending"; // if rate list updated
-
+    shop.status = "pending";
     await shop.save();
 
-    return res.json(
+    res.json(
       apiResponse({
         success: true,
-        message: "Documents updated successfully.",
+        message: "Documents updated successfully",
         data: shop,
       })
     );
   } catch (err) {
-    console.error("Update Documents Error:", err);
-    return res.status(500).json(apiResponse({ success: false, message: "Server error" }));
+    console.error(err);
+    res.status(500).json(apiResponse({ success: false, message: "Server error" }));
   }
 };
+
 
 // 🔹 Get My Shops
 export const getMyShops = async (req, res) => {

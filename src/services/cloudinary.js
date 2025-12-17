@@ -35,15 +35,15 @@ const createRawStorage = (folder) =>
       format: file.originalname.split(".").pop(), // pdf / xls
     }),
   });
-
-const createPdfStorage = (folder) =>
+const pdfStorage = (folder) =>
   new CloudinaryStorage({
     cloudinary,
-    params: {
+    params: (req, file) => ({
       folder: `smart-saving/${folder}`,
-      resource_type: "image", // ✅ IMPORTANT
-      allowed_formats: ["pdf"],
-    },
+      resource_type: "raw",
+      public_id: `${Date.now()}-${file.originalname}`,
+      format: file.originalname.split(".").pop(),
+    }),
   });
 
 /* ================= MULTER EXPORTS ================= */
@@ -64,7 +64,7 @@ export const uploadVendorKyc = multer({
 });
 
 export const uploadShopDocs = multer({
-  storage: createPdfStorage("shops/docs"),
+  storage: pdfStorage("shops/docs"),
 });
 
 export const uploadRateListFiles = multer({

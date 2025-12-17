@@ -17,6 +17,7 @@ import {
   uploadRateListFiles,
   uploadShopDocs,
 } from "../services/cloudinary.js";
+import { uploadShopDocsLocal } from "../services/multerLocal.js";
 
 const router = express.Router();
 
@@ -68,11 +69,23 @@ router.post(
   uploadRateList
 );
 
-// Update only documents (rent agreement / rate list)
+// // Update only documents (rent agreement / rate list)
+// router.put(
+//   "/shop/:shopId/documents",
+//   authMiddleware,
+//   uploadShopDocs.fields([
+//     { name: "rentAgreement", maxCount: 1 },
+//     { name: "licenseDoc", maxCount: 1 },
+//     { name: "rateListFile", maxCount: 1 },
+//     { name: "rateListExcel", maxCount: 1 },
+//   ]),
+//   updateShopDocuments
+// );
+
 router.put(
   "/shop/:shopId/documents",
   authMiddleware,
-  uploadShopDocs.fields([
+  uploadShopDocsLocal.fields([
     { name: "rentAgreement", maxCount: 1 },
     { name: "licenseDoc", maxCount: 1 },
     { name: "rateListFile", maxCount: 1 },

@@ -24,7 +24,15 @@ import path from "path";
 dotenv.config();
 const app = express();
 
-app.use("/uploads", express.static(path.join(process.cwd(), "uploads")));
+app.use(
+  "/uploads",
+  cors({
+    origin: "*",
+    methods: ["GET"],
+  }),
+  express.static(path.join(process.cwd(), "uploads"))
+);
+
 
 /* ----------------------------- IMPORTANT FIX ----------------------------- */
 // Razorpay Webhook MUST receive RAW BODY
@@ -35,7 +43,7 @@ app.use(
 /* ------------------------------------------------------------------------ */
 
 // Now load express.json()
-app.use(express.json({ limit: "100mb" }));
+app.use(express.json({ limit: "500mb" }));
 // Other middlewares
 app.use(
   cors({

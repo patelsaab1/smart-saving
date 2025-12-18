@@ -4,28 +4,89 @@ import Shop from "../models/Shop.js";
 import apiResponse from "../utils/apiResponse.js";
 
 // 🔹 Add new Shop
+// export const addShop = async (req, res) => {
+//   // console.log(req.body)
+//   console.log("req.files ", req.files)
+//   try {
+//     const user = await User.findById(req.user.id);
+//     if (!user || user.role !== "vendor") {
+//       return res
+//         .status(403)
+//         .json(apiResponse({ success: false, message: "Unauthorized or not a vendor" }));
+//     }
+
+//     const { shopName, category, subcategory, contactNumber, address, gstNumber, defaultDiscountRate } = req.body;
+//     const { rentAgreement, licenseDoc } = req.files || {};
+
+//     if (!rentAgreement)
+//       return res
+//         .status(400)
+//         .json(apiResponse({ success: false, message: "Rent agreement required" }));
+
+//     const shopDocs = {
+//       rentAgreement: rentAgreement[0].path,
+//       licenseDoc: licenseDoc ? licenseDoc[0].path : null,
+//       gstNumber: gstNumber || "",
+//     };
+
+//     const shop = await Shop.create({
+//       owner: user._id,
+//       shopName,
+//       category,
+//       subcategory,
+//       contactNumber,
+//       address: JSON.parse(address || "{}"),
+//       documents: shopDocs,
+//       defaultDiscountRate: defaultDiscountRate || 10,
+//       status: "pending",
+//     });
+
+//     return res.status(201).json(
+//       apiResponse({
+//         success: true,
+//         message: "Shop created successfully. Awaiting admin approval.",
+//         data: shop,
+//       })
+//     );
+//   } catch (err) {
+//     console.error("Add Shop Error:", err);
+//     return res.status(500).json(apiResponse({ success: false, message: "Server error" }));
+//   }
+// };
+
 export const addShop = async (req, res) => {
-  // console.log(req.body)
-  console.log("req.files ",req.files)
   try {
     const user = await User.findById(req.user.id);
+
     if (!user || user.role !== "vendor") {
-      return res
-        .status(403)
-        .json(apiResponse({ success: false, message: "Unauthorized or not a vendor" }));
+      return res.status(403).json(
+        apiResponse({ success: false, message: "Unauthorized or not a vendor" })
+      );
     }
 
-    const { shopName, category, subcategory, contactNumber, address, gstNumber, defaultDiscountRate } = req.body;
+    const {
+      shopName,
+      category,
+      subcategory,
+      contactNumber,
+      address,
+      gstNumber,
+      defaultDiscountRate,
+    } = req.body;
+
     const { rentAgreement, licenseDoc } = req.files || {};
 
-    if (!rentAgreement)
-      return res
-        .status(400)
-        .json(apiResponse({ success: false, message: "Rent agreement required" }));
+    if (!rentAgreement) {
+      return res.status(400).json(
+        apiResponse({ success: false, message: "Rent agreement required" })
+      );
+    }
 
     const shopDocs = {
-      rentAgreement: rentAgreement[0].path,
-      licenseDoc: licenseDoc ? licenseDoc[0].path : null,
+      rentAgreement: `/uploads/shops/documents/${rentAgreement[0].filename}`,
+      licenseDoc: licenseDoc
+        ? `/uploads/shops/documents/${licenseDoc[0].filename}`
+        : null,
       gstNumber: gstNumber || "",
     };
 
@@ -41,7 +102,7 @@ export const addShop = async (req, res) => {
       status: "pending",
     });
 
-    return res.status(201).json(
+    res.status(201).json(
       apiResponse({
         success: true,
         message: "Shop created successfully. Awaiting admin approval.",
@@ -50,11 +111,66 @@ export const addShop = async (req, res) => {
     );
   } catch (err) {
     console.error("Add Shop Error:", err);
-    return res.status(500).json(apiResponse({ success: false, message: "Server error" }));
+    res.status(500).json(
+      apiResponse({ success: false, message: "Server error" })
+    );
   }
 };
 
 // 🔹 Update Shop
+// export const updateShop = async (req, res) => {
+//   try {
+//     const shop = await Shop.findOne({
+//       _id: req.params.shopId,
+//       owner: req.user.id,
+//     });
+
+//     if (!shop)
+//       return res
+//         .status(404)
+//         .json(apiResponse({ success: false, message: "Shop not found" }));
+
+//     const fields = [
+//       "shopName",
+//       "category",
+//       "subcategory",
+//       "contactNumber",
+//       "defaultDiscountRate",
+//     ];
+
+//     fields.forEach((field) => {
+//       if (req.body[field]) shop[field] = req.body[field];
+//     });
+
+//     // Address update
+//     if (req.body.address) {
+//       shop.address = JSON.parse(req.body.address);
+//     }
+
+//     // Files if passed
+//     const { rentAgreement, licenseDoc } = req.files || {};
+
+//     if (rentAgreement) shop.documents.rentAgreement = rentAgreement[0].path;
+//     if (licenseDoc) shop.documents.licenseDoc = licenseDoc[0].path;
+
+//     shop.status = "pending"; // after update, verification required
+
+//     await shop.save();
+
+//     return res.json(
+//       apiResponse({
+//         success: true,
+//         message: "Shop updated successfully.",
+//         data: shop,
+//       })
+//     );
+//   } catch (err) {
+//     console.error("Update Shop Error:", err);
+//     return res
+//       .status(500)
+//       .json(apiResponse({ success: false, message: "Server error" }));
+//   }
+// };
 export const updateShop = async (req, res) => {
   try {
     const shop = await Shop.findOne({
@@ -62,10 +178,11 @@ export const updateShop = async (req, res) => {
       owner: req.user.id,
     });
 
-    if (!shop)
-      return res
-        .status(404)
-        .json(apiResponse({ success: false, message: "Shop not found" }));
+    if (!shop) {
+      return res.status(404).json(
+        apiResponse({ success: false, message: "Shop not found" })
+      );
+    }
 
     const fields = [
       "shopName",
@@ -79,22 +196,24 @@ export const updateShop = async (req, res) => {
       if (req.body[field]) shop[field] = req.body[field];
     });
 
-    // Address update
     if (req.body.address) {
       shop.address = JSON.parse(req.body.address);
     }
 
-    // Files if passed
     const { rentAgreement, licenseDoc } = req.files || {};
 
-    if (rentAgreement) shop.documents.rentAgreement = rentAgreement[0].path;
-    if (licenseDoc) shop.documents.licenseDoc = licenseDoc[0].path;
+    if (rentAgreement) {
+      shop.documents.rentAgreement = `/uploads/shops/documents/${rentAgreement[0].filename}`;
+    }
 
-    shop.status = "pending"; // after update, verification required
+    if (licenseDoc) {
+      shop.documents.licenseDoc = `/uploads/shops/documents/${licenseDoc[0].filename}`;
+    }
 
+    shop.status = "pending";
     await shop.save();
 
-    return res.json(
+    res.json(
       apiResponse({
         success: true,
         message: "Shop updated successfully.",
@@ -103,9 +222,9 @@ export const updateShop = async (req, res) => {
     );
   } catch (err) {
     console.error("Update Shop Error:", err);
-    return res
-      .status(500)
-      .json(apiResponse({ success: false, message: "Server error" }));
+    res.status(500).json(
+      apiResponse({ success: false, message: "Server error" })
+    );
   }
 };
 
@@ -266,31 +385,33 @@ export const updateShopDocuments = async (req, res) => {
     if (!shop)
       return res
         .status(404)
-        .json(apiResponse({ success: false, message: "Shop not found" }));
+        .json({ success: false, message: "Shop not found" });
+
+    const baseUrl = `${req.protocol}://${req.get("host")}`;
 
     const { rentAgreement, licenseDoc } = req.files || {};
 
     if (rentAgreement) {
-      shop.documents.rentAgreement = `/uploads/shops/documents/${rentAgreement[0].filename}`;
+      shop.documents.rentAgreement =
+        `${baseUrl}/uploads/shops/documents/${rentAgreement[0].filename}`;
     }
 
     if (licenseDoc) {
-      shop.documents.licenseDoc = `/uploads/shops/documents/${licenseDoc[0].filename}`;
+      shop.documents.licenseDoc =
+        `${baseUrl}/uploads/shops/documents/${licenseDoc[0].filename}`;
     }
 
     shop.status = "pending";
     await shop.save();
 
-    res.json(
-      apiResponse({
-        success: true,
-        message: "Documents updated successfully",
-        data: shop,
-      })
-    );
+    res.json({
+      success: true,
+      message: "Documents updated successfully",
+      data: shop,
+    });
   } catch (err) {
     console.error(err);
-    res.status(500).json(apiResponse({ success: false, message: "Server error" }));
+    res.status(500).json({ success: false, message: "Server error" });
   }
 };
 

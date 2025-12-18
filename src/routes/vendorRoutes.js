@@ -36,7 +36,7 @@ router.get("/shops", getActiveShops);
 router.post(
   "/shop",
   authMiddleware,
-  uploadShopDocs.fields([
+  uploadShopDocsLocal.fields([
     { name: "rentAgreement", maxCount: 1 },
     { name: "licenseDoc", maxCount: 1 },
   ]),
@@ -47,7 +47,7 @@ router.post(
 router.put(
   "/shop/:shopId",
   authMiddleware,
-  uploadShopDocs.fields([
+  uploadShopDocsLocal.fields([
     { name: "rentAgreement", maxCount: 1 },
     { name: "licenseDoc", maxCount: 1 },
   ]),

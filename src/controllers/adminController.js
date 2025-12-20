@@ -105,7 +105,7 @@ export const loginAdmin = async (req, res) => {
 // GET Admin Profile
 export const getAdminProfile = async (req, res) => {
   try {
-    const admin = req.admin;
+    const admin = req.user; // ✅ FIX
 
     res.json(
       apiResponse({
@@ -122,6 +122,7 @@ export const getAdminProfile = async (req, res) => {
       })
     );
   } catch (err) {
+    console.error("Get Profile Error:", err);
     res
       .status(500)
       .json(apiResponse({ success: false, message: "Server error" }));
@@ -132,33 +133,34 @@ export const getAdminProfile = async (req, res) => {
 export const updateAdminProfile = async (req, res) => {
   try {
     const { name, email, phone } = req.body;
+    const adminId = req.user._id; // ✅ FIX
 
     if (email) {
       const exists = await Admin.findOne({
         email,
-        _id: { $ne: req.admin._id },
+        _id: { $ne: adminId },
       });
       if (exists) {
-        return res
-          .status(400)
-          .json(apiResponse({ success: false, message: "Email already in use" }));
+        return res.status(400).json(
+          apiResponse({ success: false, message: "Email already in use" })
+        );
       }
     }
 
     if (phone) {
       const exists = await Admin.findOne({
         phone,
-        _id: { $ne: req.admin._id },
+        _id: { $ne: adminId },
       });
       if (exists) {
-        return res
-          .status(400)
-          .json(apiResponse({ success: false, message: "Phone already in use" }));
+        return res.status(400).json(
+          apiResponse({ success: false, message: "Phone already in use" })
+        );
       }
     }
 
     const admin = await Admin.findByIdAndUpdate(
-      req.admin._id,
+      adminId,
       { name, email, phone },
       { new: true }
     );
@@ -176,6 +178,7 @@ export const updateAdminProfile = async (req, res) => {
       })
     );
   } catch (err) {
+    console.error("Update Profile Error:", err);
     res
       .status(500)
       .json(apiResponse({ success: false, message: "Server error" }));
@@ -188,18 +191,18 @@ export const changeAdminPassword = async (req, res) => {
     const { oldPassword, newPassword } = req.body;
 
     if (!oldPassword || !newPassword) {
-      return res
-        .status(400)
-        .json(apiResponse({ success: false, message: "All fields required" }));
+      return res.status(400).json(
+        apiResponse({ success: false, message: "All fields required" })
+      );
     }
 
-    const admin = await Admin.findById(req.admin._id).select("+password");
+    const admin = await Admin.findById(req.user._id).select("+password"); // ✅ FIX
 
     const isMatch = await bcrypt.compare(oldPassword, admin.password);
     if (!isMatch) {
-      return res
-        .status(400)
-        .json(apiResponse({ success: false, message: "Old password incorrect" }));
+      return res.status(400).json(
+        apiResponse({ success: false, message: "Old password incorrect" })
+      );
     }
 
     admin.password = await bcrypt.hash(newPassword, 10);
@@ -212,6 +215,7 @@ export const changeAdminPassword = async (req, res) => {
       })
     );
   } catch (err) {
+    console.error("Change Password Error:", err);
     res
       .status(500)
       .json(apiResponse({ success: false, message: "Server error" }));

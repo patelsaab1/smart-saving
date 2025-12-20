@@ -1,11 +1,13 @@
 import express from "express";
-import { registerAdmin, loginAdmin ,approveRateList,updateShopStatus, getAllShops, approveShop, rejectShop, getUsers, toggleUserStatus, toggleSubscriptionStatus, getShopFullDetails, getAdminOverviewStats, getAdminRevenueStats, getAdminWalletStats, getAdminWithdrawalStats, getUserDetailsById } from "../controllers/adminController.js";
+import { registerAdmin, loginAdmin ,approveRateList,updateShopStatus, getAllShops, approveShop, rejectShop, getUsers, toggleUserStatus, toggleSubscriptionStatus, getShopFullDetails, getAdminOverviewStats, getAdminRevenueStats, getAdminWalletStats, getAdminWithdrawalStats, getUserDetailsById, changeAdminPassword, updateAdminProfile, getAdminProfile } from "../controllers/adminController.js";
 const router = express.Router();
 import { adminMiddleware } from "../middlewares/authMiddleware.js";
 router.post("/register", registerAdmin);
 router.post("/login", loginAdmin);
 
-
+router.get("/profile", adminMiddleware, getAdminProfile);
+router.put("/profile", adminMiddleware, updateAdminProfile);
+router.put("/change-password", adminMiddleware, changeAdminPassword);
 // ✅ Get all shops 
 router.get("/shops", getAllShops);
 router.put("/shops/:shopId/approve", adminMiddleware, approveShop);
